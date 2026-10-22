@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>아티스트 인스타그램 월별 지표 대시보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f8fafc; color: #1e293b; }
+    .sticky-col-1 { position: sticky; left: 0; z-index: 20; background: inherit; }
+    .sticky-col-2 { position: sticky; left: 96px; z-index: 20; background: inherit; }
+    .sticky-col-3 { position: sticky; left: 224px; z-index: 20; background: inherit; box-shadow: 2px 0 8px -2px rgba(0,0,0,0.06); }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- 상단 헤더 -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-[1700px] mx-auto px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 via-pink-500 to-amber-400 flex items-center justify-center text-white font-black text-xl shadow-md shadow-pink-500/20">
+          IG
+        </div>
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">아티스트 인스타 월별 지표</h1>
+            <span id="syncStatusBadge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 border border-slate-200">로컬 모드</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">아티스트별 팔로워 및 최근 10개 게시물 반응(좋아요·댓글) 추이 분석</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button onclick="openCompareModal()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-sm shadow-violet-600/20 flex items-center gap-1.5 transition active:scale-98">
+          <span>⚖️ 아티스트 비교</span>
+        </button>
+        <button onclick="openSheetSyncModal()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 flex items-center gap-2 transition active:scale-98">
+          <span>🔗 구글 시트 연동</span>
+        </button>
+        <button id="btnQuickSync" onclick="syncFromGoogleSheet(false)" class="hidden px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5 transition">
+          <span>🔄 새로고침</span>
+        </button>
+        
+        <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="importJSON(event)" />
+        <button onclick="document.getElementById('jsonFileInput').click()" class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition flex items-center gap-1.5">
+          <span>📤 JSON 업로드</span>
+        </button>
+
+        <button onclick="openArtistModal()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20 transition active:scale-98">
+          + 아티스트 추가
+        </button>
+        <button onclick="exportCSV()" class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition">
+          📥 엑셀(CSV)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 컨트롤 바 -->
+  <section class="max-w-[1700px] w-full mx-auto px-4 sm:px-8 pt-6 pb-4">
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">연도</label>
+          <select id="yearSelect" onchange="renderTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+            <option value="2025">2025년</option>
+            <option value="2026" selected>2026년</option>
+            <option value="2027">2027년</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">소속사</label>
+          <select id="agencyFilter" onchange="renderTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+            <option value="ALL">전체 소속사</option>
+          </select>
+        </div>
+
+        <div class="relative">
+          <input id="searchInput" oninput="renderTable()" type="text" placeholder="아티스트명 또는 @ID 검색..." class="px-4 py-2 pl-9 rounded-xl border border-slate-200 text-sm w-64 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+      </div>
+
+      <!-- 매월 1일 기준 안내 뱃지 추가 (정렬을 해치지 않고 깔끔하게 상단 배치) -->
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-semibold text-indigo-700">
+          <span>📊 모든 데이터는 매월 1일 기준입니다.</span>
+        </div>
+
+        <div class="flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-xl text-xs font-semibold">
+          <button onclick="setMetricMode('ALL')" id="mode_ALL" class="px-3.5 py-2 rounded-lg bg-white shadow-xs text-slate-900 font-bold transition">통합 보기</button>
+          <button onclick="setMetricMode('FOLLOWERS')" id="mode_FOLLOWERS" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">팔로워+증감</button>
+          <button onclick="setMetricMode('LIKES')" id="mode_LIKES" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">최근10 좋아요</button>
+          <button onclick="setMetricMode('COMMENTS')" id="mode_COMMENTS" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">최근10 댓글</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 메인 테이블 -->
+  <main class="max-w-[1700px] w-full mx-auto px-4 sm:px-8 pb-16 flex-1">
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div id="tableScrollContainer" class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr id="tableHeaderRow" class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <th class="sticky-col-1 bg-slate-50 py-4 px-4 w-24 min-w-[96px]">소속사</th>
+              <th class="sticky-col-2 bg-slate-50 py-4 px-4 w-32 min-w-[128px]">아티스트</th>
+              <th class="sticky-col-3 bg-slate-50 py-4 px-4 w-44 min-w-[176px]">인스타그램 ID</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-3.5 pl-1">💡 아티스트 **이름을 클릭**하면 상세 분석 리포트가 열리며, **월별 셀을 클릭**하면 숫자를 직접 수정할 수 있습니다[cite: 1].</p>
+  </main>
+
+  <!-- 아티스트 상세 분석 팝업 모달 -->
+  <div id="detailModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <span id="detailAgency" class="text-xs font-bold text-indigo-600 uppercase">소속사</span>
+          <h3 id="detailTitle" class="text-xl font-extrabold text-slate-900 mt-0.5">아티스트 상세 분석</h3>
+        </div>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+      </div>
+      <div class="py-5 space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <span class="text-xs font-semibold text-slate-500">현재 팔로워 (최신)</span>
+            <p id="detailCurrentFollowers" class="text-lg font-black text-slate-900 mt-1">-</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <span class="text-xs font-semibold text-slate-500">전월 대비 증감</span>
+            <p id="detailDiff" class="text-lg font-black text-slate-900 mt-1">-</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <span class="text-xs font-semibold text-slate-500">최근 10개 게시물 반응합</span>
+            <p id="detailEngagement" class="text-lg font-black text-slate-900 mt-1">-</p>
+          </div>
+        </div>
+
+        <!-- 월별 상세 추이 복합 그래프 -->
+        <div class="bg-slate-50/60 p-4 rounded-2xl border border-slate-100">
+          <h4 class="text-sm font-bold text-slate-900 mb-3">📊 월별 지표 추이 (매월 1일 기준)</h4>
+          <div class="w-full h-72">
+            <canvas id="artistDetailChart"></canvas>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-sm font-bold text-slate-900 mb-3">📈 월별 상세 지표 추이</h4>
+          <div class="border border-slate-200 rounded-2xl overflow-hidden">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-3">월</th>
+                  <th class="py-2.5 px-3 text-right">팔로워 수</th>
+                  <th class="py-2.5 px-3 text-right">전월 대비 증감</th>
+                  <th class="py-2.5 px-3 text-right">좋아요 (최근10)</th>
+                  <th class="py-2.5 px-3 text-right">댓글 (최근10)</th>
+                </tr>
+              </thead>
+              <tbody id="detailTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="closeDetailModal()" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white shadow-sm">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 아티스트 2명 비교 팝업 모달 -->
+  <div id="compareModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-900">⚖️ 아티스트 전격 비교</h3>
+        <button onclick="closeCompareModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+      </div>
+      <div class="py-5 space-y-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">아티스트 A</label>
+            <select id="compareArtist1" onchange="updateComparison()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold bg-white focus:ring-2 focus:ring-indigo-500"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">아티스트 B</label>
+            <select id="compareArtist2" onchange="updateComparison()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold bg-white focus:ring-2 focus:ring-indigo-500"></select>
+          </div>
+        </div>
+
+        <div id="compareResultCard" class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100"></div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-100">
+          <h4 class="text-sm font-bold text-slate-900 mb-3">📊 지표 비교 차트</h4>
+          <div class="w-full h-64">
+            <canvas id="compareChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="closeCompareModal()" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white shadow-sm">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 기타 모달들 -->
+  <div id="sheetSyncModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">🔗 구글 스프레드시트 실시간 연동</h3>
+        <button onclick="closeSheetSyncModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <div class="py-4 space-y-3 text-sm text-slate-600">
+        <p class="text-xs text-slate-500">Apps Script 웹 앱 URL을 입력하면 시트와 완벽히 동기화됩니다.</p>
+        <input id="sheetUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        <div id="syncMsg" class="text-xs hidden p-3 rounded-xl"></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeSheetSyncModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition">닫기</button>
+        <button onclick="saveAndSyncSheet()" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 transition">연동하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recordModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 id="recordModalTitle" class="text-base font-bold text-slate-900">지표 수정</h3>
+        <button onclick="closeRecordModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <div class="py-4 space-y-3.5">
+        <input type="hidden" id="recArtistId" /><input type="hidden" id="recMonth" />
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">팔로워 수</label><input id="recFollowers" type="number" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">최근 10개 좋아요 합산</label><input id="recLikes" type="number" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">최근 10개 댓글 합산</label><input id="recComments" type="number" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeRecordModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700">취소</button>
+        <button onclick="saveRecord()" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white shadow-sm shadow-indigo-600/20">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="artistModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">아티스트 추가</h3>
+        <button onclick="closeArtistModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <div class="py-4 space-y-3.5">
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">소속사</label><input id="artAgency" type="text" placeholder="예: VAST" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">아티스트명</label><input id="artName" type="text" placeholder="예: 장근석" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">인스타 ID</label><input id="artHandle" type="text" placeholder="_asia_prince_jks" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">인스타 URL</label><input id="artUrl" type="url" placeholder="https://instagram.com/..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeArtistModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700">취소</button>
+        <button onclick="saveArtist()" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white shadow-sm shadow-indigo-600/20">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'insta_artist_dashboard_v8';
+    const SHEET_URL_KEY = 'insta_google_sheet_webapp_url';
+    let metricMode = 'ALL';
+    let detailChartInstance = null;
+    let compareChartInstance = null;
+
+    const defaultData = { artists: [], records: {} };
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(defaultData));
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      updateAgencyOptions();
+      renderTable();
+    }
+
+    function updateAgencyOptions() {
+      const sel = document.getElementById('agencyFilter');
+      const current = sel.value;
+      const agencies = [...new Set(state.artists.map(a => a.agency).filter(Boolean))];
+      sel.innerHTML = '<option value="ALL">전체 소속사</option>' +
+        agencies.map(ag => `<option value="${ag}">${ag}</option>`).join('');
+      if (agencies.includes(current)) sel.value = current;
+    }
+
+    function setMetricMode(mode) {
+      metricMode = mode;
+      ['ALL', 'FOLLOWERS', 'LIKES', 'COMMENTS'].forEach(m => {
+        const btn = document.getElementById('mode_' + m);
+        if (m === mode) {
+          btn.className = 'px-3.5 py-2 rounded-lg bg-white shadow-xs text-slate-900 font-bold transition';
+        } else {
+          btn.className = 'px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition';
+        }
+      });
+      renderTable();
+    }
+
+    function formatNum(n) {
+      if (n === undefined || n === null || n === '') return '-';
+      return Number(n).toLocaleString('ko-KR');
+    }
+
+    function getFixedMonths() {
+      return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    }
+
+    function getPrevRecord(artistId, year, month) {
+      const y = Number(year), m = Number(month);
+      if (m > 1) return state.records?.[artistId]?.[String(y)]?.[String(m - 1)] || null;
+      else return state.records?.[artistId]?.[String(y - 1)]?.['12'] || null;
+    }
+
+    function renderTable() {
+      const year = document.getElementById('yearSelect').value;
+      const agency = document.getElementById('agencyFilter').value;
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      
+      const headerRow = document.getElementById('tableHeaderRow');
+      const fixedMonths = getFixedMonths();
+
+      let headerHtml = `
+        <th class="sticky-col-1 bg-slate-50 py-4 px-4 w-24 min-w-[96px]">소속사</th>
+        <th class="sticky-col-2 bg-slate-50 py-4 px-4 w-32 min-w-[128px]">아티스트</th>
+        <th class="sticky-col-3 bg-slate-50 py-4 px-4 w-44 min-w-[176px]">인스타그램 ID</th>
+      `;
+      fixedMonths.forEach(m => {
+        headerHtml += `<th class="py-4 px-3 min-w-[145px] text-right">${m}월</th>`;
+      });
+      headerRow.innerHTML = headerHtml;
+
+      const tbody = document.getElementById('tableBody');
+      const filtered = state.artists.filter(a => {
+        if (agency !== 'ALL' && a.agency !== agency) return false;
+        if (q && !(a.name.toLowerCase().includes(q) || a.handle.toLowerCase().includes(q) || a.agency.toLowerCase().includes(q))) return false;
+        return true;
+      });
+
+      tbody.innerHTML = filtered.map(artist => {
+        const hasInsta = artist.handle && artist.handle !== '-';
+        const handleHtml = hasInsta
+          ? `<a href="${artist.url || 'https://www.instagram.com/' + artist.handle}" target="_blank" class="text-indigo-600 hover:underline font-medium">@${artist.handle.replace('@','')}</a>`
+          : `<span class="text-slate-400">-</span>`;
+
+        let monthCells = '';
+        fixedMonths.forEach(m => {
+          const rec = state.records?.[artist.id]?.[year]?.[String(m)];
+          const prev = getPrevRecord(artist.id, year, m);
+
+          if (!rec) {
+            monthCells += `<td onclick="openRecordModal('${artist.id}', ${m})" class="py-3.5 px-3 text-right align-middle hover:bg-indigo-50/50 cursor-pointer transition group"><div class="text-slate-300 group-hover:text-indigo-400 text-xs">-</div></td>`;
+          } else {
+            let diffHtml = '<span class="text-slate-400 text-[11px]">-</span>';
+            if (prev && prev.followers) {
+              const diff = rec.followers - prev.followers;
+              if (diff > 0) diffHtml = `<span class="text-red-600 font-semibold text-[11px]">▲ +${formatNum(diff)}</span>`;
+              else if (diff < 0) diffHtml = `<span class="text-blue-600 font-semibold text-[11px]">▼ ${formatNum(diff)}</span>`;
+              else diffHtml = `<span class="text-slate-400 text-[11px]">- 0</span>`;
+            }
+
+            let cellContent = '';
+            if (metricMode === 'ALL') {
+              cellContent = `<div class="font-bold text-slate-900">${formatNum(rec.followers)}</div><div>${diffHtml}</div><div class="mt-1 pt-1 border-t border-slate-100 text-[11px] text-slate-500 flex justify-end gap-2"><span title="좋아요 합">❤️ ${formatNum(rec.likes10)}</span><span title="댓글 합">💬 ${formatNum(rec.comments10)}</span></div>`;
+            } else if (metricMode === 'FOLLOWERS') {
+              cellContent = `<div class="font-bold text-slate-900">${formatNum(rec.followers)}</div><div>${diffHtml}</div>`;
+            } else if (metricMode === 'LIKES') {
+              cellContent = `<div class="font-bold text-pink-600">❤️ ${formatNum(rec.likes10)}</div>`;
+            } else if (metricMode === 'COMMENTS') {
+              cellContent = `<div class="font-bold text-indigo-600">💬 ${formatNum(rec.comments10)}</div>`;
+            }
+
+            monthCells += `<td onclick="openRecordModal('${artist.id}', ${m})" class="py-3.5 px-3 text-right align-middle hover:bg-indigo-50/50 cursor-pointer transition">${cellContent}</td>`;
+          }
+        });
+
+        return `<tr class="bg-white hover:bg-slate-50/80 transition">
+          <td class="sticky-col-1 py-3.5 px-4 font-semibold text-xs text-slate-600">${artist.agency}</td>
+          <td class="sticky-col-2 py-3.5 px-4 font-bold text-slate-900 cursor-pointer hover:text-indigo-600 transition" onclick="openDetailModal('${artist.id}')" title="상세 분석 보기">${artist.name}</td>
+          <td class="sticky-col-3 py-3.5 px-4 text-xs">${handleHtml}</td>
+          ${monthCells}
+        </tr>`;
+      }).join('');
+    }
+
+    // 아티스트 상세 분석 팝업 로직 (복합 그래프 포함)
+    function openDetailModal(artistId) {
+      const year = document.getElementById('yearSelect').value;
+      const artist = state.artists.find(a => a.id === artistId);
+      if (!artist) return;
+
+      document.getElementById('detailAgency').textContent = artist.agency;
+      document.getElementById('detailTitle').textContent = `${artist.name} (@${artist.handle !== '-' ? artist.handle : '계정 없음'})`;
+
+      const artistRecords = state.records?.[artistId]?.[year] || {};
+      let latestMonth = 0;
+      let latestRec = null;
+      
+      for (let m = 12; m >= 1; m--) {
+        if (artistRecords[String(m)]) {
+          latestMonth = m;
+          latestRec = artistRecords[String(m)];
+          break;
+        }
+      }
+
+      if (latestRec) {
+        document.getElementById('detailCurrentFollowers').textContent = `${formatNum(latestRec.followers)}명 (${latestMonth}월)`;
+        const prev = getPrevRecord(artistId, year, latestMonth);
+        if (prev && prev.followers) {
+          const diff = latestRec.followers - prev.followers;
+          document.getElementById('detailDiff').innerHTML = diff > 0 ? `<span class="text-red-600">▲ +${formatNum(diff)}</span>` : (diff < 0 ? `<span class="text-blue-600">▼ ${formatNum(diff)}</span>` : '- 0');
+        } else {
+          document.getElementById('detailDiff').textContent = '-';
+        }
+        document.getElementById('detailEngagement').innerHTML = `❤️ ${formatNum(latestRec.likes10)} / 💬 ${formatNum(latestRec.comments10)}`;
+      } else {
+        document.getElementById('detailCurrentFollowers').textContent = '기록 없음';
+        document.getElementById('detailDiff').textContent = '-';
+        document.getElementById('detailEngagement').textContent = '-';
+      }
+
+      const detailTbody = document.getElementById('detailTableBody');
+      detailTbody.innerHTML = '';
+      
+      const fixedMonths = getFixedMonths();
+      const chartLabels = [];
+      const followersData = [];
+      const likesData = [];
+      const commentsData = [];
+
+      fixedMonths.forEach(m => {
+        const rec = artistRecords[String(m)];
+        const prev = getPrevRecord(artistId, year, m);
+        let diffStr = '-';
+        if (rec && prev && prev.followers) {
+          const diff = rec.followers - prev.followers;
+          diffStr = diff > 0 ? `<span class="text-red-600 font-semibold">▲ +${formatNum(diff)}</span>` : (diff < 0 ? `<span class="text-blue-600 font-semibold">▼ ${formatNum(diff)}</span>` : '0');
+        }
+
+        chartLabels.push(`${m}월`);
+        followersData.push(rec ? rec.followers : 0);
+        likesData.push(rec ? rec.likes10 : 0);
+        commentsData.push(rec ? rec.comments10 : 0);
+
+        detailTbody.innerHTML += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-semibold text-slate-700">${m}월</td>
+            <td class="py-2.5 px-3 text-right font-bold text-slate-900">${rec ? formatNum(rec.followers) : '-'}</td>
+            <td class="py-2.5 px-3 text-right">${diffStr}</td>
+            <td class="py-2.5 px-3 text-right text-pink-600">${rec ? formatNum(rec.likes10) : '-'}</td>
+            <td class="py-2.5 px-3 text-right text-indigo-600">${rec ? formatNum(rec.comments10) : '-'}</td>
+          </tr>`;
+      });
+
+      const modal = document.getElementById('detailModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      if (detailChartInstance) detailChartInstance.destroy();
+      const ctx = document.getElementById('artistDetailChart').getContext('2d');
+      detailChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            { label: '팔로워 수', data: followersData, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 3, fill: true, yAxisID: 'y' },
+            { label: '좋아요 (최근10)', data: likesData, borderColor: '#ec4899', backgroundColor: 'transparent', borderWidth: 2, yAxisID: 'y1' },
+            { label: '댓글 (최근10)', data: commentsData, borderColor: '#0ea5e9', backgroundColor: 'transparent', borderWidth: 2, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '팔로워 수' } },
+            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '좋아요 / 댓글 수' } }
+          }
+        }
+      });
+    }
+
+    function closeDetailModal() {
+      const modal = document.getElementById('detailModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // 아티스트 비교 모달 로직
+    function openCompareModal() {
+      if (state.artists.length < 2) return alert('비교하려면 아티스트가 최소 2명 이상 등록되어 있어야 합니다.');
+      const sel1 = document.getElementById('compareArtist1');
+      const sel2 = document.getElementById('compareArtist2');
+      const optionsHtml = state.artists.map(a => `<option value="${a.id}">[${a.agency}] ${a.name}</option>`).join('');
+      
+      sel1.innerHTML = optionsHtml;
+      sel2.innerHTML = optionsHtml;
+      if (state.artists.length > 1) sel2.selectedIndex = 1;
+
+      const modal = document.getElementById('compareModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      updateComparison();
+    }
+
+    function closeCompareModal() {
+      const modal = document.getElementById('compareModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function updateComparison() {
+      const id1 = document.getElementById('compareArtist1').value;
+      const id2 = document.getElementById('compareArtist2').value;
+      const year = document.getElementById('yearSelect').value;
+
+      const a1 = state.artists.find(a => a.id === id1);
+      const a2 = state.artists.find(a => a.id === id2);
+      if (!a1 || !a2) return;
+
+      const recs1 = state.records?.[id1]?.[year] || {};
+      const recs2 = state.records?.[id2]?.[year] || {};
+
+      let latestM1 = 0, latestRec1 = null;
+      for (let m = 12; m >= 1; m--) { if (recs1[String(m)]) { latestM1 = m; latestRec1 = recs1[String(m)]; break; } }
+      
+      let latestM2 = 0, latestRec2 = null;
+      for (let m = 12; m >= 1; m--) { if (recs2[String(m)]) { latestM2 = m; latestRec2 = recs2[String(m)]; break; } }
+
+      const f1 = latestRec1 ? latestRec1.followers : 0;
+      const f2 = latestRec2 ? latestRec2.followers : 0;
+      const l1 = latestRec1 ? latestRec1.likes10 : 0;
+      const l2 = latestRec2 ? latestRec2.likes10 : 0;
+
+      const card = document.getElementById('compareResultCard');
+      card.innerHTML = `
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200">
+          <span class="text-xs font-bold text-indigo-600">[${a1.agency}] ${a1.name}</span>
+          <p class="text-base font-black text-slate-900 mt-1">팔로워: ${formatNum(f1)}명</p>
+          <p class="text-xs text-slate-500 mt-0.5">최근 10개 좋아요: ${formatNum(l1)}</p>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200">
+          <span class="text-xs font-bold text-pink-600">[${a2.agency}] ${a2.name}</span>
+          <p class="text-base font-black text-slate-900 mt-1">팔로워: ${formatNum(f2)}명</p>
+          <p class="text-xs text-slate-500 mt-0.5">최근 10개 좋아요: ${formatNum(l2)}</p>
+        </div>
+      `;
+
+      if (compareChartInstance) compareChartInstance.destroy();
+      const ctx = document.getElementById('compareChart').getContext('2d');
+      compareChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['팔로워 수', '최근 10개 좋아요 합'],
+          datasets: [
+            { label: a1.name, data: [f1, l1], backgroundColor: '#6366f1', borderRadius: 8 },
+            { label: a2.name, data: [f2, l2], backgroundColor: '#ec4899', borderRadius: 8 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { ticks: { callback: function(value) { return value.toLocaleString(); } } }
+          }
+        }
+      });
+    }
+
+    function openRecordModal(artistId, month) {
+      const year = document.getElementById('yearSelect').value;
+      const artist = state.artists.find(a => a.id === artistId);
+      const rec = state.records?.[artistId]?.[year]?.[String(month)] || {};
+      document.getElementById('recArtistId').value = artistId;
+      document.getElementById('recMonth').value = month;
+      document.getElementById('recordModalTitle').textContent = `${artist.name} - ${year}년 ${month}월 지표`;
+      document.getElementById('recFollowers').value = rec.followers ?? '';
+      document.getElementById('recLikes').value = rec.likes10 ?? '';
+      document.getElementById('recComments').value = rec.comments10 ?? '';
+      const modal = document.getElementById('recordModal');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function closeRecordModal() { document.getElementById('recordModal').classList.add('hidden'); }
+    function saveRecord() {
+      const artistId = document.getElementById('recArtistId').value, month = String(document.getElementById('recMonth').value), year = document.getElementById('yearSelect').value;
+      const f = document.getElementById('recFollowers').value, l = document.getElementById('recLikes').value, c = document.getElementById('recComments').value;
+      if (!state.records[artistId]) state.records[artistId] = {};
+      if (!state.records[artistId][year]) state.records[artistId][year] = {};
+      if (f === '' && l === '' && c === '') delete state.records[artistId][year][month];
+      else state.records[artistId][year][month] = { followers: Number(f)||0, likes10: Number(l)||0, comments10: Number(c)||0 };
+      saveState(); closeRecordModal();
+    }
+
+    function openArtistModal() { document.getElementById('artistModal').classList.remove('hidden'); document.getElementById('artistModal').classList.add('flex'); }
+    function closeArtistModal() { document.getElementById('artistModal').classList.add('hidden'); }
+    function saveArtist() {
+      const agency = document.getElementById('artAgency').value.trim() || '-', name = document.getElementById('artName').value.trim(), handle = document.getElementById('artHandle').value.trim().replace('@','') || '-', url = document.getElementById('artUrl').value.trim();
+      if (!name) return alert('아티스트명을 입력해 주세요.');
+      state.artists.push({ id: 'art_' + Date.now(), agency, name, handle, url });
+      saveState(); closeArtistModal();
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data && Array.isArray(data.artists)) {
+            state.artists = data.artists; if (data.records) state.records = data.records;
+            saveState(); alert('✅ JSON 데이터가 성공적으로 반영되었습니다!');
+          } else { alert('❌ 올바른 형식이 아닙니다.'); }
+        } catch (err) { alert('❌ JSON 파싱 오류'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function openSheetSyncModal() { document.getElementById('sheetUrlInput').value = localStorage.getItem(SHEET_URL_KEY) || ''; document.getElementById('syncMsg').classList.add('hidden'); document.getElementById('sheetSyncModal').classList.remove('hidden'); document.getElementById('sheetSyncModal').classList.add('flex'); }
+    function closeSheetSyncModal() { document.getElementById('sheetSyncModal').classList.add('hidden'); }
+    async function saveAndSyncSheet() {
+      const url = document.getElementById('sheetUrlInput').value.trim(); if (!url) return alert('URL을 입력해 주세요.');
+      localStorage.setItem(SHEET_URL_KEY, url); await syncFromGoogleSheet(true);
+    }
+    async function syncFromGoogleSheet(fromModal) {
+      const url = localStorage.getItem(SHEET_URL_KEY); if (!url) return openSheetSyncModal();
+      const msgEl = document.getElementById('syncMsg');
+      if (fromModal) { msgEl.className = 'text-xs p-3 rounded-xl bg-slate-100 text-slate-700 block'; msgEl.textContent = '⏳ 동기화 중...'; }
+      try {
+        const res = await fetch(url); const data = await res.json();
+        if (data && Array.isArray(data.artists)) {
+          state.artists = data.artists; if (data.records) state.records = data.records; saveState();
+          document.getElementById('syncStatusBadge').className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200';
+          document.getElementById('syncStatusBadge').textContent = '🟢 구글 시트 연동됨';
+          document.getElementById('btnQuickSync').classList.remove('hidden');
+          if (fromModal) { msgEl.className = 'text-xs p-3 rounded-xl bg-emerald-50 text-emerald-700 font-semibold block'; msgEl.textContent = `✅ 총 ${data.artists.length}명 연동 성공!`; setTimeout(() => closeSheetSyncModal(), 1000); }
+        }
+      } catch (err) { if (fromModal) { msgEl.className = 'text-xs p-3 rounded-xl bg-rose-50 text-rose-700 block'; msgEl.textContent = '❌ 연동 실패 (웹 앱 권한을 [모든 사용자]로 설정했는지 확인하세요)'; } }
+    }
+
+    function exportCSV() {
+      const year = document.getElementById('yearSelect').value;
+      let csv = '\uFEFF소속사,아티스트명,인스타ID,인스타URL';
+      const fixedMonths = getFixedMonths();
+      fixedMonths.forEach(m => { csv += `,${m}월_팔로워,${m}월_좋아요,${m}월_댓글`; });
+      csv += '\n';
+      state.artists.forEach(a => {
+        let row = `"${a.agency}","${a.name}","${a.handle}","${a.url}"`;
+        fixedMonths.forEach(m => { const r = state.records?.[a.id]?.[year]?.[String(m)]; row += `,${r?r.followers:''},${r?r.likes10:''},${r?r.comments10:''}`; });
+        csv += row + '\n';
+      });
+      const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.download = `인스타지표_${year}.csv`; link.click();
+    }
+
+    updateAgencyOptions(); 
+    renderTable();
+
+    if (localStorage.getItem(SHEET_URL_KEY)) syncFromGoogleSheet(false);
+  </script>
+</body>
+</html>
