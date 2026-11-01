@@ -7,10 +7,14 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 
+# ==========================================
+# [설정 영역] 아래 2줄에 본인 구글 시트 정보를 꼭 입력하세요!
+# ==========================================
 SHEET_ID = "1XeY1nBDqFVFoUYQiYD59liuD3Gij4TixJNKo3P_mwxw"
 SHEET_GID = "776223726"  # 시트 주소 맨 뒤 gid= 뒤에 있는 숫자 (첫 번째 탭이면 보통 0)
 
 ANCHOR_NAME = "공유" # 기준 배우
+# ==========================================
 
 def extract_artists_from_sheet(sheet_id, gid):
     if "spreadsheets/d/" in sheet_id:
@@ -63,8 +67,8 @@ def generate_default_weekly_dates(end_dt, weeks=52):
     return dates
 
 def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, client_secret):
-    # NCP API HUB 데이터랩 엔드포인트
-    url = "https://apigw.apigw.ntruss.com/naver-api-hub/v1/datalab/search"
+    # NCP API HUB 데이터랩 정식 표준 엔드포인트
+    url = "https://apigw.apigw.ntruss.com/datalab/v1/search"
     headers = {
         "X-NCP-APIGW-API-KEY-ID": client_id,
         "X-NCP-APIGW-API-KEY": client_secret,
@@ -97,8 +101,7 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
                 
             res = requests.post(url, headers=headers, data=json.dumps(body))
             if res.status_code != 200:
-                print(f"❌ NCP API HUB 오류 (코드 {res.status_code})")
-                print(f"🔍 NCP API HUB 상세 에러 내용: {res.text}")
+                print(f"❌ API HUB 오류 (코드 {res.status_code}): {res.text}")
                 continue
                 
             results = res.json().get("results", [])
@@ -145,8 +148,6 @@ def normalize_to_100(score_dict):
 if __name__ == "__main__":
     NAVER_CLIENT_ID = (os.environ.get("NAVER_CLIENT_ID") or "").strip().strip('"').strip("'")
     NAVER_CLIENT_SECRET = (os.environ.get("NAVER_CLIENT_SECRET") or "").strip().strip('"').strip("'")
-
-    print(f"🔑 [키 점검] ID 길이: {len(NAVER_CLIENT_ID)} | SECRET 길이: {len(NAVER_CLIENT_SECRET)}")
 
     end_dt = datetime.now()
     start_dt = end_dt - timedelta(days=365)
