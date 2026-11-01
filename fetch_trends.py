@@ -18,13 +18,11 @@ ANCHOR_NAME = "공유" # 기준 배우
 # ==========================================
 
 def extract_artists_from_sheet(sheet_id, gid):
-    # 혹시라도 전체 URL이나 불필요한 기호가 들어갔을 경우 자동으로 순수 ID만 추출
     if "spreadsheets/d/" in sheet_id:
         sheet_id = sheet_id.split("spreadsheets/d/")[1].split("/")[0]
     sheet_id = sheet_id.strip()
     gid = re.sub(r'[^0-9]', '', str(gid)) or "0"
 
-    # 호환성이 가장 높은 구글 gviz CSV 엔드포인트와 기본 export 엔드포인트 순차 시도
     urls = [
         f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&gid={gid}",
         f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
@@ -38,20 +36,15 @@ def extract_artists_from_sheet(sheet_id, gid):
             if res.status_code == 200 and "<!DOCTYPE html>" not in res.text[:200]:
                 df = pd.read_csv(io.StringIO(res.text), header=None, dtype=str).fillna("")
                 break
-            else:
-                print(f"⚠️ 시트 응답 확인 필요 (상태코드 {res.status_code}): 공개 설정 또는 ID 확인 필요")
         except Exception as e:
             print(f"⚠️ URL 접속 실패: {e}")
 
     if df is None or df.empty:
-        raise ValueError("❌ 구글 시트 데이터를 읽어오지 못했습니다. SHEET_ID와 공유 권한(링크가 있는 모든 사용자)을 확인하세요.")
-
-    print(f"📊 시트 로드 성공 (크기: {df.shape[0]}행 x {df.shape[1]}열)")
+        raise ValueError("❌ 구글 시트 데이터를 읽어오지 못했습니다.")
 
     artists = []
     skip_words = ['소속배우수', '계약종료', '전체', 'MGMT', '배우수', 'update', '소속사', '아티스트', '이름']
 
-    # 모든 행과 열을 순회하며 (소속사, 배우명) 쌍 추출
     for r in range(df.shape[0]):
         row_vals = [str(df.iloc[r, c]).strip() for c in range(df.shape[1])]
         c = 0
@@ -60,22 +53,18 @@ def extract_artists_from_sheet(sheet_id, gid):
             name = row_vals[c + 1]
 
             if agency and name:
-                # 제외 키워드 포함 여부 확인
                 if any(w.lower() in agency.lower() or w.lower() in name.lower() for w in skip_words):
                     c += 1
                     continue
-                # 숫자만 있거나 날짜 형식(2025-06, 26.10.29 등)인 경우 제외[cite: 1]
                 if re.match(r'^[\d\.\-\/\s]+$', agency) or re.match(r'^[\d\.\-\/\s]+$', name):
                     c += 1
                     continue
-                # 정상적인 (소속사, 배우명) 쌍으로 판단
                 if len(agency) <= 15 and len(name) <= 15:
                     artists.append({"agency": agency, "name": name})
-                    c += 2  # 찾았으면 다음 세트로 점프
+                    c += 2
                     continue
             c += 1
 
-    # 중복 제거
     unique_artists = []
     seen = set()
     for a in artists:
@@ -84,18 +73,21 @@ def extract_artists_from_sheet(sheet_id, gid):
             unique_artists.append(a)
 
     print(f"✅ 구글 시트에서 총 {len(unique_artists)}명의 현직 배우 명단을 추출했습니다.")
-    if len(unique_artists) == 0:
-        print("🔍 [디버그용] 시트 상위 10줄 내용 출력:")
-        print(df.head(10).to_string())
-        raise ValueError("❌ 추출된 배우가 0명입니다. 위 디버그 표를 확인해 주세요.")
-
     return unique_artists
 
+def generate_default_weekly_dates(end_dt, weeks=52):
+    dates = []
+    for i in range(weeks - 1, -1, -1):
+        d = end_dt - timedelta(days=i * 7)
+        dates.append(d.strftime("%Y-%m-%d"))
+    return dates
+
 def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, client_secret):
-    url = "https://openapi.naver.com/v1/datalab/search"
+    # NAVER API HUB 전용 엔드포인트 및 헤더 적용
+    url = "https://apigw.apigw.ntruss.com/naver-api-hub/v1/datalab/search"
     headers = {
-        "X-Naver-Client-Id": client_id,
-        "X-Naver-Client-Secret": client_secret,
+        "X-NCP-APIGW-API-KEY-ID": client_id,
+        "X-NCP-APIGW-API-KEY": client_secret,
         "Content-Type": "application/json"
     }
     
@@ -107,7 +99,7 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
     dates = []
 
     for g_key, g_val in genders.items():
-        print(f"⏳ 네이버 데이터랩 [{g_key.upper()}] 수집 중... (총 {len(chunks)}회 호출)")
+        print(f"⏳ NAVER API HUB 데이터랩 [{g_key.upper()}] 수집 중... (총 {len(chunks)}회 호출)")
         base_anchor_avg = None
         
         for idx, chunk in enumerate(chunks):
@@ -125,7 +117,7 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
                 
             res = requests.post(url, headers=headers, data=json.dumps(body))
             if res.status_code != 200:
-                print(f"❌ 네이버 API 오류: {res.text}")
+                print(f"❌ API HUB 오류 (코드 {res.status_code}): {res.text}")
                 continue
                 
             results = res.json().get("results", [])
@@ -161,9 +153,10 @@ def fetch_google_trends(artists, anchor_name, dates_len):
     chunks = [others[i:i + 4] for i in range(0, len(others), 4)]
     
     google_scores = {}
+    google_dates = []
     base_anchor_avg = None
     
-    print(f"⏳ 구글 트렌드 수집 중... (총 {len(chunks)}회 호출)")
+    print(f"⏳ 구글 트렌드 수집 중...")
     for idx, chunk in enumerate(chunks):
         kw_list = [anchor_name] + chunk
         try:
@@ -175,6 +168,9 @@ def fetch_google_trends(artists, anchor_name, dates_len):
                     if name not in google_scores:
                         google_scores[name] = [0] * dates_len
                 continue
+
+            if not google_dates:
+                google_dates = [d.strftime("%Y-%m-%d") for d in df.index[-dates_len:]]
                 
             anchor_series = df[anchor_name].tolist()[-dates_len:]
             current_anchor_avg = sum(anchor_series) / len(anchor_series) if sum(anchor_series) > 0 else 1
@@ -190,15 +186,14 @@ def fetch_google_trends(artists, anchor_name, dates_len):
                 series = df[name].tolist()[-dates_len:] if name in df else [0] * dates_len
                 google_scores[name] = [round(val * scale_factor, 4) for val in series]
                 
-            print(f"  - 구글 트렌드 ({idx+1}/{len(chunks)}) 완료")
             time.sleep(6)
         except Exception as e:
-            print(f"⚠️ 구글 트렌드 ({idx+1}번째 묶음) 일시 오류: {e}")
+            print(f"⚠️ 구글 트렌드 일시 오류: {e}")
             for name in chunk:
                 google_scores[name] = [0] * dates_len
             time.sleep(10)
             
-    return google_scores
+    return google_dates, google_scores
 
 def normalize_to_100(score_dict):
     max_val = 0
@@ -215,8 +210,8 @@ def normalize_to_100(score_dict):
     }
 
 if __name__ == "__main__":
-    NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID")
-    NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET")
+    NAVER_CLIENT_ID = (os.environ.get("NAVER_CLIENT_ID") or "").strip().strip('"').strip("'")
+    NAVER_CLIENT_SECRET = (os.environ.get("NAVER_CLIENT_SECRET") or "").strip().strip('"').strip("'")
 
     end_dt = datetime.now()
     start_dt = end_dt - timedelta(days=365)
@@ -228,11 +223,17 @@ if __name__ == "__main__":
         ANCHOR_NAME = artists[0]["name"]
         
     dates, naver_raw = fetch_naver_datalab(artists, ANCHOR_NAME, start_str, end_str, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET)
-    naver_all = normalize_to_100(naver_raw["all"])
-    naver_m = normalize_to_100(naver_raw["m"])
-    naver_f = normalize_to_100(naver_raw["f"])
     
-    google_raw = fetch_google_trends(artists, ANCHOR_NAME, len(dates))
+    if not dates:
+        dates = generate_default_weekly_dates(end_dt, 52)
+        
+    google_dates, google_raw = fetch_google_trends(artists, ANCHOR_NAME, len(dates))
+    if google_dates and len(google_dates) == len(dates):
+        dates = google_dates
+
+    naver_all = normalize_to_100(naver_raw.get("all", {}))
+    naver_m = normalize_to_100(naver_raw.get("m", {}))
+    naver_f = normalize_to_100(naver_raw.get("f", {}))
     google_all = normalize_to_100(google_raw)
     
     output_data = {
