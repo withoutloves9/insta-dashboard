@@ -67,8 +67,8 @@ def generate_default_weekly_dates(end_dt, weeks=52):
     return dates
 
 def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, client_secret):
-    # API HUB 전용 게이트웨이 표준 엔드포인트
-    url = "https://fin-apigw.apigw.ntruss.com/naver-api-hub/v1/datalab/search"
+    # 공식 가이드 기준 NCP API HUB 검색어 트렌드 정식 엔드포인트
+    url = "https://naverapihub.apigw.ntruss.com/search-trend/v1/search"
     headers = {
         "X-NCP-APIGW-API-KEY-ID": client_id,
         "X-NCP-APIGW-API-KEY": client_secret,
@@ -108,89 +108,4 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
             if not dates and results:
                 dates = [d["period"] for d in results[0]["data"]]
                 
-            chunk_map = {}
-            for r in results:
-                period_dict = {d["period"]: d["ratio"] for d in r["data"]}
-                chunk_map[r["title"]] = [period_dict.get(dt, 0) for dt in dates]
-                
-            anchor_series = chunk_map.get(anchor_name, [1]*len(dates))
-            current_anchor_avg = sum(anchor_series) / len(anchor_series) if sum(anchor_series) > 0 else 1
-            
-            if idx == 0:
-                base_anchor_avg = current_anchor_avg
-                raw_scores[g_key][anchor_name] = anchor_series
-                scale_factor = 1.0
-            else:
-                scale_factor = base_anchor_avg / current_anchor_avg
-                
-            for name in chunk:
-                series = chunk_map.get(name, [0]*len(dates))
-                raw_scores[g_key][name] = [round(val * scale_factor, 4) for val in series]
-                
-            time.sleep(0.15)
-
-    return dates, raw_scores
-
-def normalize_to_100(score_dict):
-    max_val = 0
-    for series in score_dict.values():
-        if series:
-            m = max(series)
-            if m > max_val:
-                max_val = m
-    if max_val == 0:
-        return score_dict
-    return {
-        name: [round((v / max_val) * 100, 2) for v in series]
-        for name, series in score_dict.items()
-    }
-
-if __name__ == "__main__":
-    NAVER_CLIENT_ID = (os.environ.get("NAVER_CLIENT_ID") or "").strip().strip('"').strip("'")
-    NAVER_CLIENT_SECRET = (os.environ.get("NAVER_CLIENT_SECRET") or "").strip().strip('"').strip("'")
-
-    end_dt = datetime.now()
-    start_dt = end_dt - timedelta(days=365)
-    start_str = start_dt.strftime("%Y-%m-%d")
-    end_str = end_dt.strftime("%Y-%m-%d")
-    
-    artists = extract_artists_from_sheet(SHEET_ID, SHEET_GID)
-    if not any(a["name"] == ANCHOR_NAME for a in artists):
-        ANCHOR_NAME = artists[0]["name"]
-        
-    dates, naver_raw = fetch_naver_datalab(artists, ANCHOR_NAME, start_str, end_str, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET)
-    
-    if not dates:
-        dates = generate_default_weekly_dates(end_dt, 52)
-
-    naver_all = normalize_to_100(naver_raw.get("all", {}))
-    naver_m = normalize_to_100(naver_raw.get("m", {}))
-    naver_f = normalize_to_100(naver_raw.get("f", {}))
-    
-    output_data = {
-        "updatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "anchor": ANCHOR_NAME,
-        "dates": dates,
-        "artists": []
-    }
-    
-    for a in artists:
-        name = a["name"]
-        output_data["artists"].append({
-            "agency": a["agency"],
-            "name": name,
-            "naver": {
-                "all": naver_all.get(name, [0]*len(dates)),
-                "m": naver_m.get(name, [0]*len(dates)),
-                "f": naver_f.get(name, [0]*len(dates))
-            },
-            "google": {
-                "all": [0]*len(dates)
-            }
-        })
-        
-    js_content = f"window.TRENDS_DATA = {json.dumps(output_data, ensure_ascii=False)};"
-    with open("trends_data.js", "w", encoding="utf-8") as f:
-        f.write(js_content)
-        
-    print("🎉 trends_data.js 생성 완료!")
+            chunk_
