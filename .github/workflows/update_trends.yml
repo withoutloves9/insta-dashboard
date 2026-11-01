@@ -35,7 +35,9 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git pull origin main --rebase
+          git stash
+          git pull origin main --rebase || true
+          git stash pop || true
           git add trends_data.js
           git diff --staged --quiet || git commit -m "Auto-update: 네이버 및 구글 트렌드 데이터 갱신"
           git push
