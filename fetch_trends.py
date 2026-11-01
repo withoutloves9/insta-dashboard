@@ -67,8 +67,8 @@ def generate_default_weekly_dates(end_dt, weeks=52):
     return dates
 
 def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, client_secret):
-    # NCP API HUB 데이터랩 정식 표준 엔드포인트
-    url = "https://apigw.apigw.ntruss.com/datalab/v1/search"
+    # API HUB 전용 게이트웨이 표준 엔드포인트
+    url = "https://fin-apigw.apigw.ntruss.com/naver-api-hub/v1/datalab/search"
     headers = {
         "X-NCP-APIGW-API-KEY-ID": client_id,
         "X-NCP-APIGW-API-KEY": client_secret,
