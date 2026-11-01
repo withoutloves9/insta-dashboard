@@ -1,0 +1,41 @@
+name: Update Artist Trends Data
+
+on:
+  schedule:
+    # 매주 월요일 오전 8시(한국시간 기준, UTC 23:00) 자동 실행
+    - cron: '0 23 * * 0'
+  workflow_dispatch: # 언제든 수동으로 즉시 실행할 수 있는 버튼 활성화
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 코드 불러오기
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 필수 라이브러리 설치
+        run: |
+          pip install pandas requests pytrends "urllib3<2.0"
+
+      - name: 네이버 데이터랩 & 구글 트렌드 데이터 수집 실행
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: |
+          python fetch_trends.py
+
+      - name: 생성된 trends_data.js 파일 자동 저장 및 반영
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add trends_data.js
+          git diff --staged --quiet || git commit -m "Auto-update: 네이버 및 구글 트렌드 데이터 갱신"
+          git push
