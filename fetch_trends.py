@@ -8,11 +8,10 @@ import pandas as pd
 import requests
 
 # ==========================================
-# [설정 영역] 지정해주신 정보가 적용된 상태입니다
+# [설정 영역]
 # ==========================================
 SHEET_ID = "1XeY1nBDqFVFoUYQiYD59liuD3Gij4TixJNKo3P_mwxw"
 SHEET_GID = "776223726"
-
 ANCHOR_NAME = "공유"
 # ==========================================
 
@@ -56,7 +55,6 @@ def extract_artists_from_sheet(sheet_id, gid):
             seen.add(a["name"])
             unique_artists.append(a)
 
-    print(f"✅ 구글 시트에서 총 {len(unique_artists)}명의 현직 배우 명단 추출 완료")
     return unique_artists
 
 def generate_default_weekly_dates(end_dt, weeks=52):
@@ -82,9 +80,7 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
     dates = []
 
     for g_key, g_val in genders.items():
-        print(f"⏳ NCP API HUB 데이터랩 [{g_key.upper()}] 수집 중... (총 {len(chunks)}회 호출)")
         base_anchor_avg = None
-        
         for idx, chunk in enumerate(chunks):
             group_names = [anchor_name] + chunk
             keyword_groups = [{"groupName": name, "keywords": [name]} for name in group_names]
@@ -100,7 +96,6 @@ def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, c
                 
             res = requests.post(url, headers=headers, data=json.dumps(body))
             if res.status_code != 200:
-                print(f"❌ API HUB 오류 (코드 {res.status_code}): {res.text}")
                 continue
                 
             results = res.json().get("results", [])
@@ -177,7 +172,7 @@ if __name__ == "__main__":
         name = a["name"]
         all_series = naver_all.get(name, [0]*len(dates))
         
-        # 기간별 누적 합산 계산
+        # 1년, 6개월, 3개월 주간 비율들의 '누적 합산(Sum)' 계산
         total_1year = sum(all_series)
         total_6months = sum(all_series[-26:]) if len(all_series) >= 26 else sum(all_series)
         total_3months = sum(all_series[-13:]) if len(all_series) >= 13 else sum(all_series)
@@ -204,4 +199,4 @@ if __name__ == "__main__":
     with open("trends_data.js", "w", encoding="utf-8") as f:
         f.write(js_content)
         
-    print("🎉 trends_data.js 생성 완료!")
+    print("🎉 누적 합산 데이터 포함된 trends_data.js 생성 완료!")
