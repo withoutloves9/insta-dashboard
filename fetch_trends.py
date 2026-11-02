@@ -172,7 +172,7 @@ if __name__ == "__main__":
         name = a["name"]
         all_series = naver_all.get(name, [0]*len(dates))
         
-        # 1년, 6개월, 3개월 주간 비율들의 '누적 합산(Sum)' 계산
+        # 1년, 6개월, 3개월 누적 합산(Sum) 계산
         total_1year = sum(all_series)
         total_6months = sum(all_series[-26:]) if len(all_series) >= 26 else sum(all_series)
         total_3months = sum(all_series[-13:]) if len(all_series) >= 13 else sum(all_series)
