@@ -21,34 +21,41 @@
   <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs">
     <div class="max-w-[1700px] mx-auto px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <div id="headerLogoBox" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">TR</div>
+        <div id="headerLogoBox" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-pink-500 flex items-center justify-center text-white font-black text-xl shadow-md">IG</div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-slate-900">아티스트 통합 대시보드</h1>
-          <p id="trendsUpdatedBadge" class="text-xs text-slate-500">데이터 동기화 대기중</p>
+          <h1 id="headerTitle" class="text-xl font-bold tracking-tight text-slate-900">아티스트 통합 대시보드</h1>
+          <p id="headerSubtitle" class="text-xs text-slate-500">인스타그램 월별 지표 및 검색 트렌드 통합 분석</p>
         </div>
       </div>
 
       <!-- 메인 탭 스위치 -->
       <div class="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-        <button onclick="switchMainTab('INSTA')" id="mainTab_INSTA" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600">📸 인스타그램</button>
-        <button onclick="switchMainTab('TRENDS')" id="mainTab_TRENDS" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs">📈 검색 트렌드</button>
+        <button onclick="switchMainTab('INSTA')" id="mainTab_INSTA" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs">📸 인스타그램</button>
+        <button onclick="switchMainTab('TRENDS')" id="mainTab_TRENDS" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900">📈 검색 트렌드</button>
       </div>
 
-      <!-- 우측 액션 버튼 -->
+      <!-- 우측 액션 버튼 (탭에 따라 자동 전환) -->
       <div class="flex items-center gap-2.5">
-        <button onclick="reloadTrendsData()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-xs flex items-center gap-1.5">
-          <span>🔄 새로고침</span>
-        </button>
-        <button onclick="exportTrendsCSV()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5">
-          <span>📥 누적 엑셀</span>
-        </button>
+        <!-- 인스타그램 탭 전용 버튼군 -->
+        <div id="instaActionButtons" class="flex items-center gap-2">
+          <button onclick="openSheetSyncModal()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">🔗 구글 시트 연동</button>
+          <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="importJSON(event)" />
+          <button onclick="document.getElementById('jsonFileInput').click()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200">📤 JSON 업로드</button>
+          <button onclick="openArtistModal()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">+ 아티스트 추가</button>
+        </div>
+
+        <!-- 검색 트렌드 탭 전용 버튼군 -->
+        <div id="trendsActionButtons" class="hidden items-center gap-2">
+          <button onclick="reloadTrendsData()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200">🔄 새로고침</button>
+          <button onclick="exportTrendsCSV()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">📥 누적 엑셀</button>
+        </div>
       </div>
     </div>
   </header>
 
   <!-- [뷰 1] 인스타그램 대시보드 -->
-  <div id="view_INSTA" class="hidden flex-1 flex flex-col p-4 sm:p-8">
-    <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+  <div id="view_INSTA" class="flex-1 flex flex-col p-4 sm:p-8">
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-xs">
       <table class="w-full text-left border-collapse">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
@@ -62,16 +69,12 @@
   </div>
 
   <!-- [뷰 2] 검색 트렌드 대시보드 -->
-  <div id="view_TRENDS" class="flex-1 flex flex-col max-w-[1700px] w-full mx-auto px-4 sm:px-8 pt-6 pb-16 space-y-6">
-    <!-- 플랫폼 선택 탭 (네이버 vs 구글) -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
-        <button onclick="setTrendPlatform('NAVER')" id="plat_NAVER" class="px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs transition">🟢 네이버 데이터랩</button>
-        <button onclick="setTrendPlatform('GOOGLE')" id="plat_GOOGLE" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">🔵 구글 트렌드</button>
-      </div>
+  <div id="view_TRENDS" class="hidden flex-1 flex flex-col max-w-[1700px] w-full mx-auto px-4 sm:px-8 pt-6 pb-16 space-y-6">
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
+      <button onclick="setTrendPlatform('NAVER')" id="plat_NAVER" class="px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-xs">🟢 네이버 데이터랩</button>
+      <button onclick="setTrendPlatform('GOOGLE')" id="plat_GOOGLE" class="px-3.5 py-2 rounded-lg text-slate-600 text-xs font-semibold">🔵 구글 트렌드</button>
     </div>
 
-    <!-- 좌측 아티스트 선택 + 우측 비교 그래프 -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col h-[420px]">
         <div class="flex items-center justify-between mb-3">
@@ -96,7 +99,6 @@
       </div>
     </div>
 
-    <!-- 하단 누적 합산 순위표 -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
       <div class="p-5 border-b border-slate-100 font-bold text-slate-900">🏆 전체 아티스트 검색 트렌드 누적 합산 순위표</div>
       <div class="overflow-x-auto max-h-[500px]">
@@ -116,17 +118,108 @@
     </div>
   </div>
 
+  <!-- 구글 시트 연동 모달 -->
+  <div id="sheetSyncModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">🔗 구글 스프레드시트 실시간 연동</h3>
+        <button onclick="closeSheetSyncModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <div class="py-4 space-y-3 text-sm text-slate-600">
+        <p class="text-xs text-slate-500">Apps Script 웹 앱 URL을 입력하면 시트와 완벽히 동기화됩니다.</p>
+        <input id="sheetUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeSheetSyncModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-700">닫기</button>
+        <button onclick="saveAndSyncSheet()" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">연동하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 아티스트 추가 모달 -->
+  <div id="artistModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">아티스트 추가</h3>
+        <button onclick="closeArtistModal()" class="text-slate-400 text-xl font-bold">&times;</button>
+      </div>
+      <div class="py-4 space-y-3.5">
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">소속사</label><input id="artAgency" type="text" placeholder="예: VAST" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" /></div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">아티스트명</label><input id="artName" type="text" placeholder="예: 장근석" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" /></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeArtistModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100">취소</button>
+        <button onclick="saveArtist()" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white">추가</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    let currentMainTab = 'TRENDS';
+    let currentMainTab = 'INSTA';
     function switchMainTab(tab) {
       currentMainTab = tab;
-      document.getElementById('view_INSTA').classList.toggle('hidden', tab !== 'INSTA');
-      document.getElementById('view_TRENDS').classList.toggle('hidden', tab !== 'TRENDS');
-      if (tab === 'TRENDS') initTrendsDashboard();
+      const vInsta = document.getElementById('view_INSTA'), vTrends = document.getElementById('view_TRENDS');
+      const bInsta = document.getElementById('mainTab_INSTA'), bTrends = document.getElementById('mainTab_TRENDS');
+      const aInsta = document.getElementById('instaActionButtons'), aTrends = document.getElementById('trendsActionButtons');
+      const logoBox = document.getElementById('headerLogoBox');
+
+      if (tab === 'INSTA') {
+        vInsta.classList.remove('hidden'); vTrends.classList.add('hidden');
+        aInsta.classList.remove('hidden'); aTrends.classList.remove('flex'); aTrends.classList.add('hidden');
+        bInsta.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs';
+        bTrends.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900';
+        logoBox.textContent = 'IG'; logoBox.className = 'w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-pink-500 flex items-center justify-center text-white font-black text-xl shadow-md';
+      } else {
+        vInsta.classList.add('hidden'); vTrends.classList.remove('hidden');
+        aInsta.classList.add('hidden'); aTrends.classList.remove('hidden'); aTrends.style.display = 'flex';
+        bTrends.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs';
+        bInsta.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900';
+        logoBox.textContent = 'TR'; logoBox.className = 'w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md';
+        initTrendsDashboard();
+      }
+    }
+
+    const STORAGE_KEY = 'insta_artist_dashboard_v8';
+    const SHEET_URL_KEY = 'insta_google_sheet_webapp_url';
+    let state = { artists: [], records: {} };
+    try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) state = JSON.parse(raw); } catch (e) {}
+
+    function openSheetSyncModal() { document.getElementById('sheetUrlInput').value = localStorage.getItem(SHEET_URL_KEY) || ''; document.getElementById('sheetSyncModal').classList.remove('hidden'); document.getElementById('sheetSyncModal').classList.add('flex'); }
+    function closeSheetSyncModal() { document.getElementById('sheetSyncModal').classList.add('hidden'); }
+    function saveAndSyncSheet() {
+      const url = document.getElementById('sheetUrlInput').value.trim();
+      if (!url) return alert('URL을 입력해 주세요.');
+      localStorage.setItem(SHEET_URL_KEY, url);
+      alert('✅ 연동 URL이 저장되었습니다.'); closeSheetSyncModal();
+    }
+
+    function openArtistModal() { document.getElementById('artistModal').classList.remove('hidden'); document.getElementById('artistModal').classList.add('flex'); }
+    function closeArtistModal() { document.getElementById('artistModal').classList.add('hidden'); }
+    function saveArtist() {
+      const agency = document.getElementById('artAgency').value.trim() || '-', name = document.getElementById('artName').value.trim();
+      if (!name) return alert('아티스트명을 입력해 주세요.');
+      state.artists.push({ id: 'art_' + Date.now(), agency, name, handle: '-', url: '-' });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      alert('✅ 아티스트가 추가되었습니다.'); closeArtistModal(); location.reload();
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data && Array.isArray(data.artists)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            alert('✅ 데이터가 성공적으로 복구되었습니다!'); location.reload();
+          }
+        } catch (err) { alert('❌ JSON 파싱 오류'); }
+      };
+      reader.readAsText(file);
     }
 
     let trendsData = null;
-    let trendPlatform = 'NAVER'; // 'NAVER' 또는 'GOOGLE'
+    let trendPlatform = 'NAVER';
     let selectedTrendArtists = new Set();
     let trendsMainChartInstance = null;
     const CHART_COLORS = ['#10b981', '#6366f1', '#f43f5e', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899'];
@@ -141,11 +234,8 @@
     }
 
     function reloadTrendsData(isSilent = false) {
-      const badge = document.getElementById('trendsUpdatedBadge');
-      if (!isSilent) badge.textContent = '⏳ 새로고침 중...';
       const oldScript = document.getElementById('dynamicTrendsScript');
       if (oldScript) oldScript.remove();
-
       const script = document.createElement('script');
       script.id = 'dynamicTrendsScript';
       script.src = 'trends_data.js?t=' + new Date().getTime();
@@ -161,29 +251,17 @@
     }
 
     function afterTrendsDataLoaded() {
-      document.getElementById('trendsUpdatedBadge').textContent = `업데이트: ${trendsData.updatedAt || '방금 전'} (${trendsData.anchor})`;
       if (selectedTrendArtists.size === 0 && trendsData.artists.length > 0) selectTopArtists(5, false);
       renderTrendArtistSelector();
       updateTrendsChart();
       renderTrendsRankingTable();
     }
 
-    // 🟢 / 🔵 네이버 및 구글 플랫폼 전환 로직 복구
     function setTrendPlatform(plat) {
       trendPlatform = plat;
-      const btnN = document.getElementById('plat_NAVER');
-      const btnG = document.getElementById('plat_GOOGLE');
-      const title = document.getElementById('chartTitleText');
-
-      if (plat === 'NAVER') {
-        btnN.className = 'px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs transition';
-        btnG.className = 'px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition';
-        title.textContent = '📈 네이버 검색 트렌드 비교 추이';
-      } else {
-        btnG.className = 'px-3.5 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-xs transition';
-        btnN.className = 'px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition';
-        title.textContent = '📈 구글 검색 트렌드 비교 추이';
-      }
+      document.getElementById('plat_NAVER').className = plat === 'NAVER' ? 'px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs' : 'px-3.5 py-2 rounded-lg text-slate-600';
+      document.getElementById('plat_GOOGLE').className = plat === 'GOOGLE' ? 'px-3.5 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-xs' : 'px-3.5 py-2 rounded-lg text-slate-600';
+      document.getElementById('chartTitleText').textContent = plat === 'NAVER' ? '📈 네이버 검색 트렌드 비교 추이' : '📈 구글 검색 트렌드 비교 추이';
       updateTrendsChart();
     }
 
@@ -232,7 +310,6 @@
       const selectedList = trendsData.artists.filter(a => selectedTrendArtists.has(a.name));
       let labels = trendsData.dates || [];
       let datasets = selectedList.map((artist, idx) => {
-        // 네이버 또는 구글 플랫폼에 맞는 데이터 시리즈 선택 연동
         const series = trendPlatform === 'NAVER' ? (artist.naver?.all || []) : (artist.google?.all || []);
         return {
           label: `[${artist.agency}] ${artist.name}`,
@@ -280,8 +357,6 @@
       link.download = `아티스트_누적트렌드_${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
     }
-
-    initTrendsDashboard();
   </script>
 </body>
 </html>
