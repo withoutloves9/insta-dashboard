@@ -67,7 +67,6 @@ def generate_default_weekly_dates(end_dt, weeks=52):
     return dates
 
 def fetch_naver_datalab(artists, anchor_name, start_date, end_date, client_id, client_secret):
-    # NCP API HUB 검색어 트렌드 정식 엔드포인트
     url = "https://naverapihub.apigw.ntruss.com/search-trend/v1/search"
     headers = {
         "X-NCP-APIGW-API-KEY-ID": client_id,
@@ -176,13 +175,25 @@ if __name__ == "__main__":
     
     for a in artists:
         name = a["name"]
+        all_series = naver_all.get(name, [0]*len(dates))
+        
+        # 기간별 누적 합산 계산 (1년, 6개월, 3개월)
+        total_1year = sum(all_series)
+        total_6months = sum(all_series[-26:]) if len(all_series) >= 26 else sum(all_series)
+        total_3months = sum(all_series[-13:]) if len(all_series) >= 13 else sum(all_series)
+
         output_data["artists"].append({
             "agency": a["agency"],
             "name": name,
             "naver": {
-                "all": naver_all.get(name, [0]*len(dates)),
+                "all": all_series,
                 "m": naver_m.get(name, [0]*len(dates)),
                 "f": naver_f.get(name, [0]*len(dates))
+            },
+            "summary": {
+                "total_1year": round(total_1year, 2),
+                "total_6months": round(total_6months, 2),
+                "total_3months": round(total_3months, 2)
             },
             "google": {
                 "all": [0]*len(dates)
@@ -193,4 +204,5 @@ if __name__ == "__main__":
     with open("trends_data.js", "w", encoding="utf-8") as f:
         f.write(js_content)
         
-    print("🎉 trends_data.js 생성 완료!")
+    print("🎉 합산 데이터 포함된 trends_data.js 생성 완료!")
+=
