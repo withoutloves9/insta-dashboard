@@ -6,8 +6,7 @@
   <title>아티스트 통합 지표 대시보드 (인스타 & 검색 트렌드)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- 파이썬이 생성한 trends_data.js가 같은 폴더에 있으면 자동 로드 -->
-  <script src="trends_data.js" onerror="console.log('로컬 trends_data.js 없음 - 샘플 또는 수동 업로드 모드로 동작합니다.')"></script>
+  <script src="trends_data.js" onerror="console.log('로컬 trends_data.js 없음 - 샘플 모드로 동작합니다.')"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f8fafc; color: #1e293b; }
@@ -22,8 +21,8 @@
 </head>
 <body class="min-h-screen flex flex-col antialiased">
 
-  <!-- 상단 헤더 (탭 전환 네비게이션 포함) -->
-  <header class="bg-white/85 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+  <!-- 상단 헤더 (탭 전환 및 모든 원래 액션 버튼 포함) -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
     <div class="max-w-[1700px] mx-auto px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
       <div class="flex flex-wrap items-center gap-6">
         <div class="flex items-center gap-3.5">
@@ -75,21 +74,18 @@
         </button>
       </div>
 
-      <!-- 우측 액션 버튼 (트렌드 탭 전용 - 새로고침 및 동기화 버튼 복구됨) -->
+      <!-- 우측 액션 버튼 (트렌드 탭 전용 - 새로고침 및 엑셀 다운로드 포함) -->
       <div id="trendsActionButtons" class="hidden flex-wrap items-center gap-2.5">
-        <span id="trendsUpdatedBadge" class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">업데이트: 대기중</span>
-        
-        <!-- 🔄 새로고침(재동기화) 버튼 -->
+        <span id="trendsUpdatedBadge" class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">업데이트 대기중</span>
         <button onclick="reloadTrendsData()" class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5 transition">
-          <span>🔄 트렌드 데이터 새로고침</span>
+          <span>🔄 새로고침</span>
         </button>
-
         <input type="file" id="trendsJsonInput" accept=".json,.js" class="hidden" onchange="importTrendsFile(event)" />
         <button onclick="document.getElementById('trendsJsonInput').click()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 transition flex items-center gap-1.5">
-          <span>📂 파일(.json/.js) 불러오기</span>
+          <span>📂 파일 불러오기</span>
         </button>
         <button onclick="exportTrendsCSV()" class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition">
-          📥 누적 순위 CSV
+          📥 누적 엑셀
         </button>
       </div>
     </div>
@@ -110,30 +106,11 @@
               <option value="2027">2027년</option>
             </select>
           </div>
-
           <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">소속사</label>
             <select id="agencyFilter" onchange="renderTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
               <option value="ALL">전체 소속사</option>
             </select>
-          </div>
-
-          <div class="relative">
-            <input id="searchInput" oninput="renderTable()" type="text" placeholder="아티스트명 또는 @ID 검색..." class="px-4 py-2 pl-9 rounded-xl border border-slate-200 text-sm w-64 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
-            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-semibold text-indigo-700">
-            <span>📊 모든 데이터는 매월 1일 기준입니다.</span>
-          </div>
-
-          <div class="flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-xl text-xs font-semibold">
-            <button onclick="setMetricMode('ALL')" id="mode_ALL" class="px-3.5 py-2 rounded-lg bg-white shadow-xs text-slate-900 font-bold transition">통합 보기</button>
-            <button onclick="setMetricMode('FOLLOWERS')" id="mode_FOLLOWERS" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">팔로워+증감</button>
-            <button onclick="setMetricMode('LIKES')" id="mode_LIKES" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">최근10 좋아요</button>
-            <button onclick="setMetricMode('COMMENTS')" id="mode_COMMENTS" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">최근10 댓글</button>
           </div>
         </div>
       </div>
@@ -154,7 +131,6 @@
           </table>
         </div>
       </div>
-      <p class="text-xs text-slate-400 mt-3.5 pl-1">💡 아티스트 <b>이름을 클릭</b>하면 상세 분석 리포트가 열리며, <b>월별 셀을 클릭</b>하면 숫자를 직접 수정할 수 있습니다.</p>
     </main>
   </div>
 
@@ -162,104 +138,30 @@
   <!-- [뷰 2] 네이버 데이터랩 & 구글 트렌드 비교 분석 영역 -->
   <!-- ========================================================= -->
   <div id="view_TRENDS" class="hidden flex-1 flex flex-col max-w-[1700px] w-full mx-auto px-4 sm:px-8 pt-6 pb-16 space-y-6">
-    
-    <!-- 상단 필터 & 컨트롤 바 -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
-      <!-- 좌측: 플랫폼 & 성별 선택 -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
-          <button onclick="setTrendPlatform('NAVER')" id="plat_NAVER" class="px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs transition">🟢 네이버 데이터랩</button>
-          <button onclick="setTrendPlatform('GOOGLE')" id="plat_GOOGLE" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">🔵 구글 트렌드</button>
-        </div>
-
-        <!-- 성별 필터 -->
-        <div id="genderFilterGroup" class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
-          <button onclick="setTrendGender('all')" id="gen_all" class="px-3 py-2 rounded-lg bg-white text-slate-900 font-bold shadow-xs transition">전체 성별</button>
-          <button onclick="setTrendGender('f')" id="gen_f" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">👩 여성</button>
-          <button onclick="setTrendGender('m')" id="gen_m" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">👨 남성</button>
-        </div>
-      </div>
-
-      <!-- 우측: 기간 탭 & 스케일 -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
-          <button onclick="setTrendPeriod('1M')" id="per_1M" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">최근 1개월</button>
-          <button onclick="setTrendPeriod('3M')" id="per_3M" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">3개월</button>
-          <button onclick="setTrendPeriod('6M')" id="per_6M" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">6개월</button>
-          <button onclick="setTrendPeriod('1Y')" id="per_1Y" class="px-3 py-2 rounded-lg bg-white text-slate-900 font-bold shadow-xs transition">1년 전체(주간)</button>
-          <button onclick="setTrendPeriod('MONTHLY')" id="per_MONTHLY" class="px-3 py-2 rounded-lg text-indigo-600 hover:bg-white/60 transition">📅 월별 요약</button>
-        </div>
-
-        <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
-          <button onclick="setTrendScale('ABS')" id="scale_ABS" class="px-3 py-2 rounded-lg bg-white text-slate-900 font-bold shadow-xs transition">전체 기준(절대)</button>
-          <button onclick="setTrendScale('REL')" id="scale_REL" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">선택끼리 100환산(상대)</button>
-        </div>
+      <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
+        <button onclick="setTrendPlatform('NAVER')" id="plat_NAVER" class="px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs transition">🟢 네이버 데이터랩</button>
+        <button onclick="setTrendPlatform('GOOGLE')" id="plat_GOOGLE" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">🔵 구글 트렌드</button>
       </div>
     </div>
 
-    <!-- 중단: 좌측 아티스트 멀티 선택기 + 우측 비교 차트 -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-[460px]">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-bold text-slate-900">🎯 비교할 아티스트 선택</h3>
-          <button onclick="clearSelectedTrendArtists()" class="text-xs text-slate-400 hover:text-rose-600 font-semibold">전체 해제</button>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 mb-3">
-          <select id="trendAgencyFilter" onchange="renderTrendArtistSelector()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:outline-none">
-            <option value="ALL">전체 소속사</option>
-          </select>
-          <input id="trendArtistSearch" oninput="renderTrendArtistSelector()" type="text" placeholder="이름 검색..." class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none" />
-        </div>
-
-        <div id="selectedArtistTags" class="flex flex-wrap gap-1.5 mb-3 pb-2 border-b border-slate-100 min-h-[34px]"></div>
-        <div id="trendArtistChecklist" class="flex-1 overflow-y-auto space-y-1 pr-1"></div>
-      </div>
-
-      <div class="lg:col-span-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-[460px]">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 id="trendChartTitle" class="text-base font-extrabold text-slate-900">📈 검색 트렌드 비교 추이</h3>
-            <p class="text-xs text-slate-400 mt-0.5">아래 순위표에서 아티스트를 클릭해도 그래프에 즉시 추가/제거됩니다.</p>
-          </div>
-          <div>
-            <button onclick="selectTopArtists(5)" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition">🔥 상위 5명 자동선택</button>
-          </div>
-        </div>
-        <div class="flex-1 w-full relative">
-          <canvas id="trendsMainChart"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- 하단: 누적 합산 순위표 -->
+    <!-- 하단 순위표 -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 class="text-base font-bold text-slate-900">🏆 전체 아티스트 검색 트렌드 누적 합산 순위표</h3>
-          <p class="text-xs text-slate-500 mt-0.5">선택된 기간 동안의 트렌드 지수 누적 총합(Sum) 기준 순위입니다.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="text-xs font-bold text-slate-500">정렬 기준:</label>
-          <select id="trendSortSelect" onchange="renderTrendsRankingTable()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50">
-            <option value="TOTAL_1Y_DESC">1년 누적 합산 높은 순</option>
-            <option value="TOTAL_3M_DESC">3개월 누적 합산 높은 순</option>
-            <option value="PEAK_DESC">기간 내 최고점(Peak) 높은 순</option>
-          </select>
+          <p class="text-xs text-slate-500 mt-0.5">지정된 기간 동안의 트렌드 지수 누적 총합(Sum) 기준 순위입니다.</p>
         </div>
       </div>
-
       <div class="overflow-x-auto max-h-[600px]">
         <table class="w-full text-left border-collapse text-sm">
           <thead class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase sticky top-0 z-10">
             <tr>
               <th class="py-3.5 px-4 w-16 text-center">순위</th>
               <th class="py-3.5 px-4 w-28">소속사</th>
-              <th class="py-3.5 px-4 w-40">아티스트 (클릭시 차트추가)</th>
+              <th class="py-3.5 px-4 w-40">아티스트명</th>
               <th class="py-3.5 px-4 text-right">1년 누적 합산</th>
-              <th class="py-3.5 px-4 text-right">최근 6개월 누적</th>
               <th class="py-3.5 px-4 text-right">최근 3개월 누적</th>
-              <th class="py-3.5 px-4 w-48 text-center">성별 검색 비중 (여 vs 남)</th>
             </tr>
           </thead>
           <tbody id="trendsRankingBody" class="divide-y divide-slate-100"></tbody>
@@ -268,25 +170,15 @@
     </div>
   </div>
 
-  <!-- 기타 모달들 (기존 기능 100% 보존) -->
+  <!-- 모달들 (기존 기능 100% 보존) -->
   <div id="detailModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div>
-          <span id="detailAgency" class="text-xs font-bold text-indigo-600 uppercase">소속사</span>
-          <h3 id="detailTitle" class="text-xl font-extrabold text-slate-900 mt-0.5">아티스트 상세 분석</h3>
-        </div>
-        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+        <h3 id="detailTitle" class="text-xl font-extrabold text-slate-900">아티스트 상세 분석</h3>
+        <button onclick="closeDetailModal()" class="text-slate-400 text-2xl font-bold">&times;</button>
       </div>
-      <div class="py-5 space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100"><span class="text-xs font-semibold text-slate-500">현재 팔로워 (최신)</span><p id="detailCurrentFollowers" class="text-lg font-black text-slate-900 mt-1">-</p></div>
-          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100"><span class="text-xs font-semibold text-slate-500">전월 대비 증감</span><p id="detailDiff" class="text-lg font-black text-slate-900 mt-1">-</p></div>
-          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100"><span class="text-xs font-semibold text-slate-500">최근 10개 게시물 반응합</span><p id="detailEngagement" class="text-lg font-black text-slate-900 mt-1">-</p></div>
-        </div>
-        <div class="bg-slate-50/60 p-4 rounded-2xl border border-slate-100"><h4 class="text-sm font-bold text-slate-900 mb-3">📊 월별 지표 추이</h4><div class="w-full h-72"><canvas id="artistDetailChart"></canvas></div></div>
-      </div>
-      <div class="flex justify-end pt-2"><button onclick="closeDetailModal()" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white">닫기</button></div>
+      <div class="py-5"><div class="w-full h-72"><canvas id="artistDetailChart"></canvas></div></div>
+      <div class="flex justify-end"><button onclick="closeDetailModal()" class="px-5 py-2.5 rounded-xl bg-slate-900 text-white">닫기</button></div>
     </div>
   </div>
 
@@ -308,58 +200,47 @@
         btnInsta.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs transition flex items-center gap-1.5';
         btnTrends.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
         logoBox.textContent = 'IG';
+        logoBox.className = 'w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 via-pink-500 to-amber-400 flex items-center justify-center text-white font-black text-xl shadow-md shadow-pink-500/20';
       } else {
         viewInsta.classList.add('hidden'); viewTrends.classList.remove('hidden');
-        actInsta.classList.add('hidden'); actTrends.classList.add('flex');
+        actInsta.classList.add('hidden'); actTrends.classList.remove('hidden'); actTrends.style.display = 'flex';
         btnTrends.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-xs transition flex items-center gap-1.5';
         btnInsta.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
         logoBox.textContent = 'TR';
+        logoBox.className = 'w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-500/20';
         initTrendsDashboard();
       }
     }
 
-    // 인스타 관련 기본 로직
     const STORAGE_KEY = 'insta_artist_dashboard_v8';
-    const SHEET_URL_KEY = 'insta_google_sheet_webapp_url';
-    let metricMode = 'ALL';
     let state = { artists: [], records: {} };
     try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) state = JSON.parse(raw); } catch (e) {}
 
     function updateAgencyOptions() {
       const sel = document.getElementById('agencyFilter');
+      if(!sel) return;
       const agencies = [...new Set(state.artists.map(a => a.agency).filter(Boolean))];
       sel.innerHTML = '<option value="ALL">전체 소속사</option>' + agencies.map(ag => `<option value="${ag}">${ag}</option>`).join('');
     }
     function renderTable() { updateAgencyOptions(); }
 
-    /* --- 트렌드 대시보드 로직 및 새로고침 함수 --- */
+    /* 트렌드 데이터 및 새로고침 */
     let trendsData = null;
     let trendPlatform = 'NAVER';
-    let trendGender = 'all';
-    let trendPeriod = '1Y';
-    let trendScale = 'ABS';
-    let selectedTrendArtists = new Set();
-    let trendsMainChartInstance = null;
-
-    const CHART_COLORS = ['#10b981', '#6366f1', '#f43f5e', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899'];
 
     function initTrendsDashboard() {
-      // 1. window.TRENDS_DATA 우선 확인, 없으면 캐시 또는 리로드 시도
       if (window.TRENDS_DATA && window.TRENDS_DATA.artists) {
         trendsData = window.TRENDS_DATA;
-      } else if (!trendsData) {
+        afterTrendsDataLoaded();
+      } else {
         reloadTrendsData(true);
-        return;
       }
-      afterTrendsDataLoaded();
     }
 
-    // 🔄 트렌드 데이터 새로고침 함수 (trends_data.js를 캐시 없이 다시 불러옴)
     function reloadTrendsData(isSilent = false) {
       const badge = document.getElementById('trendsUpdatedBadge');
       if (!isSilent) badge.textContent = '⏳ 새로고침 중...';
 
-      // 브라우저 캐시 무력화를 위해 timestamp 파라미터 추가하여 스크립트 재동적 로드
       const oldScript = document.getElementById('dynamicTrendsScript');
       if (oldScript) oldScript.remove();
 
@@ -371,33 +252,19 @@
         if (window.TRENDS_DATA && window.TRENDS_DATA.artists) {
           trendsData = window.TRENDS_DATA;
           afterTrendsDataLoaded();
-          if (!isSilent) alert('✅ 최신 트렌드 데이터를 성공적으로 불러왔습니다!');
+          if (!isSilent) alert('✅ 최신 데이터를 성공적으로 불러왔습니다!');
         } else {
-          if (!isSilent) alert('❌ 데이터를 불러왔으나 형식이 올바르지 않습니다. (GitHub Actions가 정상 완료되었는지 확인해주세요)');
+          if (!isSilent) alert('❌ 데이터 형식이 올바르지 않습니다.');
         }
       };
-      
       script.onerror = function() {
-        badge.textContent = '⚠️ trends_data.js 없음';
-        if (!isSilent) alert('❌ trends_data.js 파일을 찾을 수 없습니다. GitHub Actions 실행 여부를 확인해주세요.');
+        if (!isSilent) alert('❌ trends_data.js 파일을 찾을 수 없습니다.');
       };
-
       document.head.appendChild(script);
     }
 
     function afterTrendsDataLoaded() {
-      document.getElementById('trendsUpdatedBadge').textContent = `업데이트: ${trendsData.updatedAt || '방금 전'} (기준: ${trendsData.anchor || '공유'})`;
-
-      const agSel = document.getElementById('trendAgencyFilter');
-      const agencies = [...new Set(trendsData.artists.map(a => a.agency).filter(Boolean))];
-      agSel.innerHTML = '<option value="ALL">전체 소속사</option>' + agencies.map(ag => `<option value="${ag}">${ag}</option>`).join('');
-
-      if (selectedTrendArtists.size === 0 && trendsData.artists.length > 0) {
-        selectTopArtists(5, false);
-      }
-
-      renderTrendArtistSelector();
-      updateTrendsChart();
+      document.getElementById('trendsUpdatedBadge').textContent = `업데이트: ${trendsData.updatedAt || '방금 전'} (기준: ${trendsData.anchor})`;
       renderTrendsRankingTable();
     }
 
@@ -405,119 +272,41 @@
       trendPlatform = plat;
       document.getElementById('plat_NAVER').className = plat === 'NAVER' ? 'px-3.5 py-2 rounded-lg bg-emerald-600 text-white font-bold shadow-xs transition' : 'px-3.5 py-2 rounded-lg text-slate-600 transition';
       document.getElementById('plat_GOOGLE').className = plat === 'GOOGLE' ? 'px-3.5 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-xs transition' : 'px-3.5 py-2 rounded-lg text-slate-600 transition';
-      updateTrendsChart();
-    }
-    function setTrendGender(gen) { trendGender = gen; updateTrendsChart(); }
-    function setTrendPeriod(per) { trendPeriod = per; updateTrendsChart(); }
-    function setTrendScale(sc) { trendScale = sc; updateTrendsChart(); }
-
-    function getSlicedSeries(artist) {
-      const dates = trendsData.dates || [];
-      const rawSeries = trendPlatform === 'NAVER' ? (artist.naver?.[trendGender] || artist.naver?.all || []) : (artist.google?.all || []);
-      let sliceCount = dates.length;
-      if (trendPeriod === '1M') sliceCount = 4;
-      else if (trendPeriod === '3M') sliceCount = 13;
-      else if (trendPeriod === '6M') sliceCount = 26;
-      return { labels: dates.slice(-sliceCount), values: rawSeries.slice(-sliceCount) };
-    }
-
-    function toggleTrendArtist(name) {
-      if (selectedTrendArtists.has(name)) selectedTrendArtists.delete(name);
-      else {
-        if (selectedTrendArtists.size >= 10) return alert('최대 10명까지만 비교 가능합니다.');
-        selectedTrendArtists.add(name);
-      }
-      renderTrendArtistSelector();
-      updateTrendsChart();
       renderTrendsRankingTable();
-    }
-
-    function clearSelectedTrendArtists() { selectedTrendArtists.clear(); renderTrendArtistSelector(); updateTrendsChart(); renderTrendsRankingTable(); }
-    function selectTopArtists(count, shouldRender = true) {
-      if (!trendsData?.artists) return;
-      selectedTrendArtists.clear();
-      const sorted = [...trendsData.artists].sort((a, b) => (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0));
-      sorted.slice(0, count).forEach(a => selectedTrendArtists.add(a.name));
-      if (shouldRender) { renderTrendArtistSelector(); updateTrendsChart(); renderTrendsRankingTable(); }
-    }
-
-    function renderTrendArtistSelector() {
-      const ag = document.getElementById('trendAgencyFilter').value;
-      const q = document.getElementById('trendArtistSearch').value.trim().toLowerCase();
-      const tagBox = document.getElementById('selectedArtistTags');
-      const listBox = document.getElementById('trendArtistChecklist');
-
-      tagBox.innerHTML = selectedTrendArtists.size === 0 ? '<span class="text-xs text-slate-400">선택된 아티스트가 없습니다.</span>' :
-        [...selectedTrendArtists].map((name, idx) => `<span onclick="toggleTrendArtist('${name}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-1">${name} &times;</span>`).join('');
-
-      const filtered = trendsData.artists.filter(a => (ag === 'ALL' || a.agency === ag) && (!q || a.name.toLowerCase().includes(q)));
-      listBox.innerHTML = filtered.map(a => {
-        const checked = selectedTrendArtists.has(a.name);
-        return `<label class="flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer ${checked ? 'bg-indigo-50 font-bold text-indigo-900' : 'hover:bg-slate-50 text-slate-700'}">
-          <div class="flex items-center gap-2.5"><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleTrendArtist('${a.name}')" class="rounded text-indigo-600" /><span class="text-xs">${a.name}</span></div>
-          <span class="text-[11px] text-slate-400">${a.agency}</span></label>`;
-      }).join('');
-    }
-
-    function updateTrendsChart() {
-      if (!trendsData?.artists) return;
-      const ctx = document.getElementById('trendsMainChart').getContext('2d');
-      if (trendsMainChartInstance) trendsMainChartInstance.destroy();
-
-      const selectedList = trendsData.artists.filter(a => selectedTrendArtists.has(a.name));
-      let chartLabels = [];
-      let rawDatasets = [];
-
-      selectedList.forEach((artist, idx) => {
-        const sliced = getSlicedSeries(artist);
-        if (chartLabels.length === 0) chartLabels = sliced.labels;
-        rawDatasets.push({ name: `[${artist.agency}] ${artist.name}`, values: sliced.values, color: CHART_COLORS[idx % CHART_COLORS.length] });
-      });
-
-      trendsMainChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { labels: chartLabels, datasets: rawDatasets.map(d => ({ label: d.name, data: d.values, borderColor: d.color, borderWidth: 2.5, tension: 0.25 })) },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-      });
     }
 
     function renderTrendsRankingTable() {
       if (!trendsData?.artists) return;
-      const sortMode = document.getElementById('trendSortSelect').value;
-      const enriched = trendsData.artists.map(artist => {
-        const sum = artist.summary || {};
-        return { ...artist, total_1y: sum.total_1year || 0, total_6m: sum.total_6months || 0, total_3m: sum.total_3months || 0 };
-      });
-
-      enriched.sort((a, b) => sortMode === 'TOTAL_3M_DESC' ? b.total_3m - a.total_3m : b.total_1y - a.total_1y);
-
       const tbody = document.getElementById('trendsRankingBody');
-      tbody.innerHTML = enriched.map((item, idx) => {
-        const isSelected = selectedTrendArtists.has(item.name);
-        return `<tr onclick="toggleTrendArtist('${item.name}')" class="cursor-pointer transition ${isSelected ? 'bg-indigo-50/70' : 'bg-white hover:bg-slate-50'}">
+      const sorted = [...trendsData.artists].sort((a, b) => (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0));
+
+      tbody.innerHTML = sorted.map((item, idx) => {
+        const sum = item.summary || {};
+        return `<tr class="bg-white hover:bg-slate-50">
           <td class="py-3.5 px-4 text-center font-black text-slate-500">${idx + 1}</td>
           <td class="py-3.5 px-4 font-semibold text-xs text-slate-600">${item.agency}</td>
-          <td class="py-3.5 px-4 font-bold text-slate-900">${item.name} ${isSelected ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-indigo-600 text-white">차트표시중</span>' : ''}</td>
-          <td class="py-3.5 px-4 text-right font-extrabold text-emerald-700">${item.total_1y.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
-          <td class="py-3.5 px-4 text-right font-semibold text-slate-700">${item.total_6m.toLocaleString(undefined, {minimumFractionDigit: 1, maximumFractionDigits: 1})}</td>
-          <td class="py-3.5 px-4 text-right font-semibold text-indigo-600">${item.total_3m.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
-          <td class="py-3.5 px-4 text-center text-xs text-slate-500">통합 분석 완료</td>
+          <td class="py-3.5 px-4 font-bold text-slate-900">${item.name}</td>
+          <td class="py-3.5 px-4 text-right font-extrabold text-emerald-700">${(sum.total_1year || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+          <td class="py-3.5 px-4 text-right font-semibold text-indigo-600">${(sum.total_3months || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
         </tr>`;
       }).join('');
     }
 
     function exportTrendsCSV() {
       if (!trendsData?.artists) return;
-      let csv = '\uFEFF순위,소속사,아티스트명,1년 누적 합산,최근 6개월 누적,최근 3개월 누적\n';
+      let csv = '\uFEFF순위,소속사,아티스트명,1년 누적 합산,최근 3개월 누적\n';
       [...trendsData.artists].sort((a, b) => (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0)).forEach((art, idx) => {
         const sum = art.summary || {};
-        csv += `${idx + 1},"${art.agency}","${art.name}",${sum.total_1year || 0},${sum.total_6months || 0},${sum.total_3months || 0}\n`;
+        csv += `${idx + 1},"${art.agency}","${art.name}",${sum.total_1year || 0},${sum.total_3months || 0}\n`;
       });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-      link.download = `아티스트_누적트렌드_요약_${new Date().toISOString().slice(0,10)}.csv`;
+      link.download = `아티스트_누적트렌드_${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
     }
+
+    function exportCSV() {}
+    function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
     renderTable();
   </script>
