@@ -8,12 +8,12 @@ import pandas as pd
 import requests
 
 # ==========================================
-# [설정 영역] 아래 2줄에 본인 구글 시트 정보를 꼭 입력하세요!
+# [설정 영역] 지정해주신 정보가 적용된 상태입니다
 # ==========================================
 SHEET_ID = "1XeY1nBDqFVFoUYQiYD59liuD3Gij4TixJNKo3P_mwxw"
-SHEET_GID = "776223726"  # 시트 주소 맨 뒤 gid= 뒤에 있는 숫자 (첫 번째 탭이면 보통 0)
+SHEET_GID = "776223726"
 
-ANCHOR_NAME = "공유" # 기준 배우
+ANCHOR_NAME = "공유"
 # ==========================================
 
 def extract_artists_from_sheet(sheet_id, gid):
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         name = a["name"]
         all_series = naver_all.get(name, [0]*len(dates))
         
-        # 기간별 누적 합산 계산 (1년, 6개월, 3개월)
+        # 기간별 누적 합산 계산
         total_1year = sum(all_series)
         total_6months = sum(all_series[-26:]) if len(all_series) >= 26 else sum(all_series)
         total_3months = sum(all_series[-13:]) if len(all_series) >= 13 else sum(all_series)
@@ -204,5 +204,4 @@ if __name__ == "__main__":
     with open("trends_data.js", "w", encoding="utf-8") as f:
         f.write(js_content)
         
-    print("🎉 합산 데이터 포함된 trends_data.js 생성 완료!")
-=
+    print("🎉 trends_data.js 생성 완료!")
