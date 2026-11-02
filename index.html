@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>아티스트 누적 트렌드 대시보드</title>
+    <title>아티스트 통합 대시보드</title>
     <!-- 외부 trends_data.js 로드 -->
     <script src="trends_data.js" onerror="console.log('로컬 trends_data.js 로드 전 - 기본 모드로 동작합니다.')"></script>
     <style>
@@ -70,7 +70,7 @@
         }
         .table-responsive {
             overflow-x: auto;
-            max-height: 600px;
+            max-height: 500px;
             overflow-y: auto;
         }
         .text-center { text-align: center; }
@@ -82,14 +82,15 @@
 
 <div class="container">
     <header>
-        <h1>🏆 아티스트 검색 트렌드 누적 합산 대시보드</h1>
+        <h1>📈 아티스트 통합 대시보드</h1>
         <p id="updateTime" style="margin: 5px 0 0 0; font-size: 13px; color: #bdc3c7;"></p>
     </header>
 
-    <!-- 📊 기간별 누적 트렌드 순위 및 엑셀 다운로드 카드 -->
-    <div class="card">
-        <h3 style="margin-top: 0;">📊 아티스트 기간별 누적 합산 순위 (총합 기준)</h3>
-        <button class="btn-download" onclick="downloadExcel()">📥 누적 데이터 엑셀(.csv) 다운로드</button>
+    <!-- 🏆 새롭게 추가된 기간별 누적 합산 순위표 및 다운로드 카드 -->
+    <div class="card" style="border-left: 5px solid #27ae60;">
+        <h3 style="margin-top: 0; color: #27ae60;">🔥 아티스트 기간별 누적 합산 순위 (1년 / 6개월 / 3개월 총합)</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">단순 평균이 아닌, 선택된 기간 동안의 트렌드 지수 누적 총합 기준 순위입니다.</p>
+        <button class="btn-download" onclick="downloadCumulativeExcel()">📥 누적 합산 데이터 엑셀(.csv) 다운로드</button>
         
         <div class="table-responsive">
             <table>
@@ -97,14 +98,14 @@
                     <tr>
                         <th>순위</th>
                         <th>소속사</th>
-                        <th>아티스트</th>
+                        <th>아티스트명</th>
                         <th>1년 누적 합산</th>
                         <th>최근 6개월 누적</th>
                         <th>최근 3개월 누적</th>
                     </tr>
                 </thead>
-                <tbody id="rankBody">
-                    <!-- 자바스크립트가 데이터를 자동으로 채워 넣습니다 -->
+                <tbody id="cumulativeRankBody">
+                    <!-- 자바스크립트가 누적 데이터를 채워 넣습니다 -->
                 </tbody>
             </table>
         </div>
@@ -121,7 +122,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         if (trendData.artists) {
-            const tbody = document.getElementById('rankBody');
+            const tbody = document.getElementById('cumulativeRankBody');
             tbody.innerHTML = '';
             
             // 1년 누적 합산(total_1year)이 높은 순서대로 내림차순 정렬
@@ -129,7 +130,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 return (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0);
             });
 
-            // 순위표 행 생성
+            // 누적 순위표 행 생성
             sortedArtists.forEach((artist, index) => {
                 const summary = artist.summary || {};
                 const tr = document.createElement('tr');
@@ -145,12 +146,12 @@ window.addEventListener('DOMContentLoaded', () => {
             });
         }
     } else {
-        document.getElementById('rankBody').innerHTML = `<tr><td colspan="6" class="text-center">데이터를 불러오지 못했습니다. trends_data.js 파일을 확인해주세요.</td></tr>`;
+        document.getElementById('cumulativeRankBody').innerHTML = `<tr><td colspan="6" class="text-center">데이터를 불러오지 못했습니다. trends_data.js 파일을 확인해주세요.</td></tr>`;
     }
 });
 
-// 누적 합산 데이터가 포함된 CSV 다운로드 함수
-function downloadExcel() {
+// 진정한 누적 합산 데이터가 담기는 CSV 다운로드 함수
+function downloadCumulativeExcel() {
     const trendData = window.TRENDS_DATA || window.WINDOW_TRENDS_DATA;
     if (!trendData || !trendData.artists) {
         alert("다운로드할 데이터가 없습니다.");
@@ -180,7 +181,7 @@ function downloadExcel() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `artist_trends_summary_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `artist_cumulative_trends_${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
 }
 </script>
