@@ -83,7 +83,7 @@
           <span>📂 트렌드 데이터(.json/.js) 불러오기</span>
         </button>
         <button onclick="exportTrendsCSV()" class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition">
-          📥 트렌드 순위 CSV
+          📥 누적 합산 순위 CSV
         </button>
       </div>
     </div>
@@ -185,8 +185,8 @@
           <button onclick="setTrendPeriod('MONTHLY')" id="per_MONTHLY" class="px-3 py-2 rounded-lg text-indigo-600 hover:bg-white/60 transition">📅 월별 요약</button>
         </div>
 
-        <!-- 스케일 모드 (절대비교 vs 선택 아티스트 내 100 환산) -->
-        <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold" title="절대비교는 전체 129명 기준 수치이며, 상대비교는 현재 체크된 배우들 중 최고치를 100으로 확대해 비교합니다.">
+        <!-- 스케일 모드 -->
+        <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
           <button onclick="setTrendScale('ABS')" id="scale_ABS" class="px-3 py-2 rounded-lg bg-white text-slate-900 font-bold shadow-xs transition">전체 기준(절대)</button>
           <button onclick="setTrendScale('REL')" id="scale_REL" class="px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">선택끼리 100환산(상대)</button>
         </div>
@@ -233,21 +233,20 @@
       </div>
     </div>
 
-    <!-- 하단: 전체 아티스트 트렌드 순위 & 성별 비중 테이블 -->
+    <!-- 하단: 전체 아티스트 트렌드 누적 합산 순위 & 성별 비중 테이블 -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 class="text-base font-bold text-slate-900">🏆 전체 아티스트 검색 지수 순위표</h3>
-          <p class="text-xs text-slate-500 mt-0.5">선택한 기간 동안의 평균 검색 지수 및 최근 추이, 성별 선호도를 한눈에 비교합니다.</p>
+          <h3 class="text-base font-bold text-slate-900">🏆 전체 아티스트 검색 트렌드 누적 합산 순위표</h3>
+          <p class="text-xs text-slate-500 mt-0.5">단순 평균이 아닌, 지정된 기간 동안의 트렌드 지수 누적 총합(Sum) 기준 순위입니다.</p>
         </div>
         <div class="flex items-center gap-2">
           <label class="text-xs font-bold text-slate-500">정렬 기준:</label>
           <select id="trendSortSelect" onchange="renderTrendsRankingTable()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50">
-            <option value="AVG_DESC">기간 평균 지수 높은 순</option>
+            <option value="TOTAL_1Y_DESC">1년 누적 합산 높은 순</option>
+            <option value="TOTAL_3M_DESC">3개월 누적 합산 높은 순</option>
             <option value="PEAK_DESC">기간 내 최고점(Peak) 높은 순</option>
             <option value="MOMENTUM_DESC">최근 급상승(모멘텀) 순</option>
-            <option value="FEMALE_DESC">여성 관심 비중 높은 순 (네이버)</option>
-            <option value="MALE_DESC">남성 관심 비중 높은 순 (네이버)</option>
           </select>
         </div>
       </div>
@@ -259,11 +258,10 @@
               <th class="py-3.5 px-4 w-16 text-center">순위</th>
               <th class="py-3.5 px-4 w-28">소속사</th>
               <th class="py-3.5 px-4 w-40">아티스트 (클릭시 차트추가)</th>
-              <th class="py-3.5 px-4 text-right">선택기간 평균</th>
-              <th class="py-3.5 px-4 text-right">기간 최고점(Peak)</th>
-              <th class="py-3.5 px-4 text-right">최근 4주 모멘텀</th>
-              <th class="py-3.5 px-4 w-56 text-center">성별 검색 비중 (여 vs 남)</th>
-              <th class="py-3.5 px-4 text-right">구글 트렌드 평균</th>
+              <th class="py-3.5 px-4 text-right">1년 누적 합산</th>
+              <th class="py-3.5 px-4 text-right">최근 6개월 누적</th>
+              <th class="py-3.5 px-4 text-right">최근 3개월 누적</th>
+              <th class="py-3.5 px-4 w-48 text-center">성별 검색 비중 (여 vs 남)</th>
             </tr>
           </thead>
           <tbody id="trendsRankingBody" class="divide-y divide-slate-100"></tbody>
@@ -848,7 +846,7 @@
     }
 
     /* ========================================================= */
-    /* --- 2. 네이버 & 구글 검색 트렌드 대시보드 로직 --- */
+    /* --- 2. 네이버 & 구글 검색 트렌드 대시보드 로직 (누적 합산 반영) --- */
     /* ========================================================= */
     let trendsData = null;
     let trendPlatform = 'NAVER'; // 'NAVER' | 'GOOGLE'
@@ -863,22 +861,14 @@
       '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#3b82f6'
     ];
 
-    // 시트 이미지 기반의 리얼한 기본 샘플 데이터 생성기 (trends_data.js가 없을 때 자동 작동)
     function generateFallbackTrendsData() {
       const sampleList = [
         { agency: 'BH', name: '박보영', base: 65, fRatio: 0.68 },
         { agency: 'BH', name: '김고은', base: 58, fRatio: 0.72 },
-        { agency: 'BH', name: '이병헌', base: 52, fRatio: 0.45 },
         { agency: '숲', name: '공유', base: 62, fRatio: 0.74 },
         { agency: '숲', name: '수지', base: 75, fRatio: 0.64 },
-        { agency: '숲', name: '서현진', base: 48, fRatio: 0.76 },
-        { agency: 'JWIDE', name: '김소연', base: 42, fRatio: 0.69 },
-        { agency: 'JWIDE', name: '추영우', base: 55, fRatio: 0.81 },
         { agency: '어썸', name: '박서준', base: 68, fRatio: 0.71 },
-        { agency: '어썸', name: '김유정', base: 54, fRatio: 0.66 },
-        { agency: '킹콩', name: '이동욱', base: 60, fRatio: 0.78 },
-        { agency: '킹콩', name: '유연석', base: 51, fRatio: 0.73 },
-        { agency: '킹콩', name: '박재현', base: 38, fRatio: 0.58 }
+        { agency: '킹콩', name: '이동욱', base: 60, fRatio: 0.78 }
       ];
 
       const dates = [];
@@ -893,27 +883,26 @@
         const all = [], f = [], m = [], gAll = [];
         for (let w = 0; w < 52; w++) {
           const wave = Math.sin((w + idx * 3) / 4) * 15;
-          const spike = (w === 48 - (idx % 5) * 6) ? 25 : 0;
-          const val = Math.max(5, Math.min(100, +(item.base + wave + spike).toFixed(1)));
+          const val = Math.max(5, Math.min(100, +(item.base + wave).toFixed(1)));
           all.push(val);
-          f.push(+(val * (item.fRatio * 1.3)).toFixed(1));
-          m.push(+(val * ((1 - item.fRatio) * 1.3)).toFixed(1));
-          gAll.push(Math.max(4, Math.min(100, +(val * 0.9 + Math.cos(w) * 8).toFixed(1))));
+          f.push(+(val * item.fRatio).toFixed(1));
+          m.push(+(val * (1 - item.fRatio)).toFixed(1));
+          gAll.push(Math.max(4, Math.min(100, +(val * 0.9).toFixed(1))));
         }
+        const t1 = +(all.reduce((a, b) => a + b, 0)).toFixed(1);
+        const t6 = +(all.slice(-26).reduce((a, b) => a + b, 0)).toFixed(1);
+        const t3 = +(all.slice(-13).reduce((a, b) => a + b, 0)).toFixed(1);
+
         return {
           agency: item.agency,
           name: item.name,
           naver: { all, f, m },
-          google: { all: gAll }
+          google: { all: gAll },
+          summary: { total_1year: t1, total_6months: t6, total_3months: t3 }
         };
       });
 
-      return {
-        updatedAt: '샘플 미리보기 (fetch_trends.py 실행 시 129명 전체 데이터로 교체됨)',
-        anchor: '박보영',
-        dates,
-        artists
-      };
+      return { updatedAt: '샘플 미리보기', anchor: '박보영', dates, artists };
     }
 
     function initTrendsDashboard() {
@@ -922,22 +911,18 @@
           trendsData = window.TRENDS_DATA;
         } else {
           const saved = localStorage.getItem('trends_dashboard_cached_data');
-          if (saved) {
-            try { trendsData = JSON.parse(saved); } catch (e) {}
-          }
+          if (saved) { try { trendsData = JSON.parse(saved); } catch (e) {} }
           if (!trendsData) trendsData = generateFallbackTrendsData();
         }
       }
 
       document.getElementById('trendsUpdatedBadge').textContent = `기준: ${trendsData.updatedAt || '-'}`;
 
-      // 소속사 셀렉트 박스 채우기
       const agSel = document.getElementById('trendAgencyFilter');
       const agencies = [...new Set(trendsData.artists.map(a => a.agency).filter(Boolean))];
       agSel.innerHTML = '<option value="ALL">전체 소속사</option>' +
         agencies.map(ag => `<option value="${ag}">${ag}</option>`).join('');
 
-      // 초기 선택 아티스트가 비어있으면 상위 5명 자동 체크
       if (selectedTrendArtists.size === 0 && trendsData.artists.length > 0) {
         selectTopArtists(5, false);
       }
@@ -963,7 +948,7 @@
             localStorage.setItem('trends_dashboard_cached_data', JSON.stringify(parsed));
             selectedTrendArtists.clear();
             initTrendsDashboard();
-            alert(`✅ 총 ${parsed.artists.length}명의 트렌드 데이터를 성공적으로 불러왔습니다!`);
+            alert(`✅ 총 ${parsed.artists.length}명의 누적 트렌드 데이터를 불러왔습니다!`);
           } else {
             alert('❌ 올바른 트렌드 데이터 형식이 아닙니다.');
           }
@@ -990,7 +975,6 @@
         genGroup.classList.add('opacity-40', 'pointer-events-none');
       }
       updateTrendsChart();
-      renderTrendsRankingTable();
     }
 
     function setTrendGender(gen) {
@@ -1002,7 +986,6 @@
           : 'px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition';
       });
       updateTrendsChart();
-      renderTrendsRankingTable();
     }
 
     function setTrendPeriod(per) {
@@ -1014,7 +997,6 @@
           : 'px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition';
       });
       updateTrendsChart();
-      renderTrendsRankingTable();
     }
 
     function setTrendScale(sc) {
@@ -1028,7 +1010,6 @@
       updateTrendsChart();
     }
 
-    // 기간 탭에 따라 날짜 배열과 수치 배열을 슬라이싱하거나 월별로 묶어주는 함수
     function getSlicedSeries(artist) {
       const dates = trendsData.dates || [];
       const rawSeries = (trendPlatform === 'NAVER')
@@ -1038,7 +1019,7 @@
       if (trendPeriod === 'MONTHLY') {
         const monthMap = {};
         dates.forEach((dt, idx) => {
-          const ym = dt.slice(0, 7); // YYYY-MM
+          const ym = dt.slice(0, 7);
           if (!monthMap[ym]) monthMap[ym] = [];
           monthMap[ym].push(rawSeries[idx] || 0);
         });
@@ -1086,9 +1067,7 @@
       if (!trendsData || !trendsData.artists) return;
       selectedTrendArtists.clear();
       const sorted = [...trendsData.artists].sort((a, b) => {
-        const avgA = getSlicedSeries(a).values.reduce((x, y) => x + y, 0);
-        const avgB = getSlicedSeries(b).values.reduce((x, y) => x + y, 0);
-        return avgB - avgA;
+        return (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0);
       });
       sorted.slice(0, count).forEach(a => selectedTrendArtists.add(a.name));
       if (shouldRender) {
@@ -1104,7 +1083,6 @@
       const tagBox = document.getElementById('selectedArtistTags');
       const listBox = document.getElementById('trendArtistChecklist');
 
-      // 상단 선택된 태그 렌더링
       if (selectedTrendArtists.size === 0) {
         tagBox.innerHTML = `<span class="text-xs text-slate-400">선택된 아티스트가 없습니다.</span>`;
       } else {
@@ -1116,7 +1094,6 @@
         }).join('');
       }
 
-      // 체크박스 리스트 렌더링
       const filtered = trendsData.artists.filter(a => {
         if (ag !== 'ALL' && a.agency !== ag) return false;
         if (q && !(a.name.toLowerCase().includes(q) || a.agency.toLowerCase().includes(q))) return false;
@@ -1154,7 +1131,6 @@
         });
       });
 
-      // 상대 스케일(REL)인 경우: 현재 선택된 배우들의 최고점을 100으로 재환산
       if (trendScale === 'REL' && rawDatasets.length > 0) {
         let localMax = 0;
         rawDatasets.forEach(d => {
@@ -1207,18 +1183,20 @@
         if (q && !(a.name.toLowerCase().includes(q) || a.agency.toLowerCase().includes(q))) return false;
         return true;
       }).map(artist => {
-        const sliced = getSlicedSeries(artist).values;
-        const avg = sliced.length ? +(sliced.reduce((a, b) => a + b, 0) / sliced.length).toFixed(2) : 0;
+        const sum = artist.summary || {};
+        const total_1y = sum.total_1year || 0;
+        const total_6m = sum.total_6months || 0;
+        const total_3m = sum.total_3months || 0;
+
+        const sliced = (artist.naver?.all || []);
         const peak = sliced.length ? +Math.max(...sliced).toFixed(2) : 0;
 
-        // 최근 4주 평균 vs 직전 4주 평균 모멘텀 계산
         const recent4 = sliced.slice(-4);
         const prev4 = sliced.slice(-8, -4);
         const rAvg = recent4.length ? recent4.reduce((a, b) => a + b, 0) / recent4.length : 0;
         const pAvg = prev4.length ? prev4.reduce((a, b) => a + b, 0) / prev4.length : 0;
         const momentum = pAvg > 0 ? +(((rAvg - pAvg) / pAvg) * 100).toFixed(1) : 0;
 
-        // 성별 비중 계산 (네이버 여성/남성 평균 합산 대비 비율)
         const fArr = artist.naver?.f || [];
         const mArr = artist.naver?.m || [];
         const fSum = fArr.reduce((a, b) => a + b, 0);
@@ -1227,27 +1205,19 @@
         const fPct = totalGender > 0 ? Math.round((fSum / totalGender) * 100) : 50;
         const mPct = 100 - fPct;
 
-        // 구글 평균
-        const gArr = artist.google?.all || [];
-        const gAvg = gArr.length ? +(gArr.reduce((a, b) => a + b, 0) / gArr.length).toFixed(2) : 0;
-
-        return { ...artist, avg, peak, momentum, fPct, mPct, gAvg };
+        return { ...artist, total_1y, total_6m, total_3m, peak, momentum, fPct, mPct };
       });
 
       enriched.sort((a, b) => {
+        if (sortMode === 'TOTAL_3M_DESC') return b.total_3m - a.total_3m;
         if (sortMode === 'PEAK_DESC') return b.peak - a.peak;
         if (sortMode === 'MOMENTUM_DESC') return b.momentum - a.momentum;
-        if (sortMode === 'FEMALE_DESC') return b.fPct - a.fPct;
-        if (sortMode === 'MALE_DESC') return b.mPct - a.mPct;
-        return b.avg - a.avg;
+        return b.total_1y - a.total_1y; // 기본: 1년 누적 합산 높은 순
       });
 
       const tbody = document.getElementById('trendsRankingBody');
       tbody.innerHTML = enriched.map((item, idx) => {
         const isSelected = selectedTrendArtists.has(item.name);
-        const momHtml = item.momentum > 0
-          ? `<span class="text-rose-600 font-bold">▲ +${item.momentum}%</span>`
-          : (item.momentum < 0 ? `<span class="text-blue-600 font-bold">▼ ${item.momentum}%</span>` : `<span class="text-slate-400">0%</span>`);
 
         return `<tr onclick="toggleTrendArtist('${item.name}')" class="cursor-pointer transition ${isSelected ? 'bg-indigo-50/70 hover:bg-indigo-100/60' : 'bg-white hover:bg-slate-50'}">
           <td class="py-3.5 px-4 text-center font-black text-slate-500">${idx + 1}</td>
@@ -1256,9 +1226,9 @@
             <span>${item.name}</span>
             ${isSelected ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-indigo-600 text-white font-bold">차트표시중</span>' : ''}
           </td>
-          <td class="py-3.5 px-4 text-right font-extrabold text-emerald-700">${item.avg}</td>
-          <td class="py-3.5 px-4 text-right font-semibold text-slate-700">${item.peak}</td>
-          <td class="py-3.5 px-4 text-right text-xs">${momHtml}</td>
+          <td class="py-3.5 px-4 text-right font-extrabold text-emerald-700">${item.total_1y.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+          <td class="py-3.5 px-4 text-right font-semibold text-slate-700">${item.total_6m.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+          <td class="py-3.5 px-4 text-right font-semibold text-indigo-600">${item.total_3m.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
           <td class="py-3.5 px-4">
             <div class="flex items-center justify-between text-[11px] font-bold mb-1">
               <span class="text-pink-600">여 ${item.fPct}%</span>
@@ -1269,21 +1239,26 @@
               <div style="width: ${item.mPct}%" class="bg-blue-500 h-full"></div>
             </div>
           </td>
-          <td class="py-3.5 px-4 text-right font-bold text-blue-600">${item.gAvg}</td>
         </tr>`;
       }).join('');
     }
 
     function exportTrendsCSV() {
       if (!trendsData || !trendsData.artists) return;
-      let csv = '\uFEFF소속사,아티스트명,네이버_1년평균(전체),네이버_여성평균,네이버_남성평균,구글_1년평균\n';
-      trendsData.artists.forEach(a => {
-        const avg = arr => arr && arr.length ? (arr.reduce((x, y) => x + y, 0) / arr.length).toFixed(2) : 0;
-        csv += `"${a.agency}","${a.name}",${avg(a.naver?.all)},${avg(a.naver?.f)},${avg(a.naver?.m)},${avg(a.google?.all)}\n`;
+      let csv = '\uFEFF순위,소속사,아티스트명,1년 누적 합산,최근 6개월 누적,최근 3개월 누적\n';
+      
+      const sorted = [...trendsData.artists].sort((a, b) => {
+        return (b.summary?.total_1year || 0) - (a.summary?.total_1year || 0);
       });
+
+      sorted.forEach((art, idx) => {
+        const sum = art.summary || {};
+        csv += `${idx + 1},"${art.agency}","${art.name}",${sum.total_1year || 0},${sum.total_6months || 0},${sum.total_3months || 0}\n`;
+      });
+
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-      link.download = `아티스트_검색트렌드_요약.csv`;
+      link.download = `아티스트_누적트렌드_요약_${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
     }
 
