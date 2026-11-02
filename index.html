@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>아티스트 검색 트렌드 대시보드</title>
-    <!-- 외부 trends_data.js 로드 (에러 방지 예외 처리 포함) -->
+    <title>아티스트 누적 트렌드 대시보드</title>
+    <!-- 외부 trends_data.js 로드 -->
     <script src="trends_data.js" onerror="console.log('로컬 trends_data.js 로드 전 - 기본 모드로 동작합니다.')"></script>
     <style>
         body {
@@ -70,7 +70,7 @@
         }
         .table-responsive {
             overflow-x: auto;
-            max-height: 500px;
+            max-height: 600px;
             overflow-y: auto;
         }
         .text-center { text-align: center; }
@@ -82,13 +82,13 @@
 
 <div class="container">
     <header>
-        <h1>📈 아티스트 검색 트렌드 & 누적 순위 대시보드</h1>
+        <h1>🏆 아티스트 검색 트렌드 누적 합산 대시보드</h1>
         <p id="updateTime" style="margin: 5px 0 0 0; font-size: 13px; color: #bdc3c7;"></p>
     </header>
 
-    <!-- 📊 아티스트 기간별 누적 트렌드 순위 및 엑셀 다운로드 카드 -->
+    <!-- 📊 기간별 누적 트렌드 순위 및 엑셀 다운로드 카드 -->
     <div class="card">
-        <h3 style="margin-top: 0;">🏆 아티스트 기간별 누적 트렌드 순위</h3>
+        <h3 style="margin-top: 0;">📊 아티스트 기간별 누적 합산 순위 (총합 기준)</h3>
         <button class="btn-download" onclick="downloadExcel()">📥 누적 데이터 엑셀(.csv) 다운로드</button>
         
         <div class="table-responsive">
@@ -98,7 +98,7 @@
                         <th>순위</th>
                         <th>소속사</th>
                         <th>아티스트</th>
-                        <th>1년 누적</th>
+                        <th>1년 누적 합산</th>
                         <th>최근 6개월 누적</th>
                         <th>최근 3개월 누적</th>
                     </tr>
@@ -116,7 +116,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const trendData = window.TRENDS_DATA || window.WINDOW_TRENDS_DATA;
     
     if (trendData) {
-        // 업데이트 시간 표시
         if (trendData.updatedAt) {
             document.getElementById('updateTime').innerText = `최종 업데이트: ${trendData.updatedAt} (기준: ${trendData.anchor})`;
         }
@@ -138,7 +137,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     <td class="text-center" style="background: #fafafa; font-weight: bold;">${index + 1}</td>
                     <td class="text-center">${artist.agency}</td>
                     <td class="text-left" style="font-weight: bold;">${artist.name}</td>
-                    <td class="text-right">${(summary.total_1year || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                    <td class="text-right" style="color: #27ae60; font-weight: bold;">${(summary.total_1year || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
                     <td class="text-right">${(summary.total_6months || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
                     <td class="text-right">${(summary.total_3months || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
                 `;
@@ -150,7 +149,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 1년, 6개월, 3개월 누적 합산 데이터가 포함된 CSV 다운로드 함수
+// 누적 합산 데이터가 포함된 CSV 다운로드 함수
 function downloadExcel() {
     const trendData = window.TRENDS_DATA || window.WINDOW_TRENDS_DATA;
     if (!trendData || !trendData.artists) {
